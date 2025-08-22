@@ -30,6 +30,14 @@ $bedServerExe = "bedrock_server.exe"
 # FUNCTION TO BACKUP UP WORLDS FOLDER KEEPING LATEST BACKUPS SPECIFIED
 $logFilePath = Join-Path -Path $gameDir -ChildPath ScriptLogs\Log.txt
 Start-Transcript -Path $logFilePath -Force
+function Stop-Minecraft-Server {
+	# STOP SERVER
+	if(Get-Process -Name ($bedServerExe -replace '.exe','') -ErrorAction SilentlyContinue | Where-Object {$_.Path -like "$gameDir\*"})
+	{
+		Write-Host "STOPPING SERVICE..."
+		Get-Process -Name ($bedServerExe -replace '.exe','') | Where-Object {$_.Path -like "$gameDir\*"} | Stop-Process
+	}
+}
 function Backup-Worlds {
 	# Variables able to be configured:
 
@@ -66,11 +74,7 @@ function Backup-Worlds {
     $date = Get-Date -Format "yyyy-MM-dd_HHmmss"
 
 	# STOP SERVER
-	if(get-process -name ($bedServerExe -replace '.exe','') -ErrorAction SilentlyContinue)
-	{
-		Write-Host "STOPPING SERVICE..."
-		Stop-Process -name ($bedServerExe -replace '.exe','')
-	}
+	Stop-Minecraft-Server
 
     # Create the backup folder if it doesn't exist
     if (!(Test-Path -Path $destination)) {
@@ -170,11 +174,7 @@ Write-Host "✅ NEWEST MINECRAFT SERVER VERSION: $($filename -replace '.zip','')
 if(!(Test-Path -Path $output -PathType Leaf))
 { 
 	# STOP SERVER
-	if(get-process -name ($bedServerExe -replace '.exe','') -ErrorAction SilentlyContinue)
-	{
-		Write-Host "STOPPING SERVICE..."
-		Stop-Process -name ($bedServerExe -replace '.exe','')
-	}
+	Stop-Minecraft-Server
 
  	# PERFORM BACKUP OF WORLDS FOLDER
 	Write-Host "BACKING UP WORLDS FOLDER"
