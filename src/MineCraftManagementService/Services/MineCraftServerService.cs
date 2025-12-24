@@ -1,15 +1,21 @@
 using System.Diagnostics;
+using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
 
 namespace MineCraftManagementService.Services;
 
-public partial class MineCraftServerService
+/// <summary>
+/// Manages Minecraft server process lifecycle and state.
+/// </summary>
+public class MineCraftServerService : IMineCraftServerService
 {
     private readonly ILog<MineCraftServerService> _logger;
     private readonly MineCraftServerOptions _options;
     private Process? _serverProcess;
     private DateTime _serverStartTime = DateTime.MinValue;
+    private string _currentVersion = "unknown";
+    
     private int _serverProcessId
     {
         get
@@ -33,12 +39,26 @@ public partial class MineCraftServerService
     }
 
     public DateTime ServerStartTime => _serverStartTime;
+    
+    /// <summary>
+    /// Gets the current server version from VERSION.TXT or defaults to "unknown".
+    /// </summary>
+    public string CurrentVersion
+    {
+        get
+        {
+            // Refresh version on each access to ensure we have the latest
+            _currentVersion = GetCurrentVersionFromFiles();
+            return _currentVersion;
+        }
+    }
 
     public MineCraftServerService(ILog<MineCraftServerService> logger, MineCraftServerOptions options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _isRunning = false;
+        _currentVersion = GetCurrentVersionFromFiles();
     }
 
     /// <summary>
@@ -74,37 +94,38 @@ public partial class MineCraftServerService
         };
 
         _serverProcess = Process.Start(processStartInfo)!;
-        _serverStartTime = DateTime.UtcNow;
+        _serverStartTime = DateTime.Now;
         _isRunning = true;
         _logger.Info($"Minecraft server started successfully with PID: {_serverProcess.Id}");
 
         // Monitor output
         _ = MonitorProcessOutputAsync();
 
-        // Give server time to initialize
-        await Task.Delay(1000);
+        // Give server time to initialize and emit version info
+        await Task.Delay(3000);
 
         return IsRunning;
     }
-    public bool CheckForProcessByName()
+    private bool CheckForProcessByName()
     {
         //look for process by name using options.ServerExecutableName
         var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(_options.ServerExecutableName));
         if (processes.Length > 0)
         {
             var process = processes.Where(p => !p.HasExited).FirstOrDefault(); //it's possible that multiple processes exist with the same name. todo: fix that.
-            _logger.Info($"Found process with name {_options.ServerExecutableName} and PID: {process.Id}");
-            _serverProcess = process;
-            _isRunning = true;
-            return true;
+            if (process != null)
+            {
+                _logger.Info($"Found process with name {_options.ServerExecutableName} and PID: {process.Id}");
+                _serverProcess = process;
+                _isRunning = true;
+                return true;
+            }
         }
-        else
-        {
-            _logger.Info($"No process found with name {_options.ServerExecutableName}");
-            return false;
-        }
+        
+        _logger.Info($"No process found with name {_options.ServerExecutableName}");
+        return false;
     }
-    public bool CheckForProcessbyProcessId()
+    private bool CheckForProcessbyProcessId()
     {
         int processId = _serverProcessId;
         if (processId >= 0)
@@ -271,34 +292,25 @@ public partial class MineCraftServerService
     }
 
     /// <summary>
-    /// Restarts the Minecraft server.
-    /// </summary>
-    public async Task<bool> RestartServerAsync()
-    {
-        _logger.Info("Restarting Minecraft server");
-
-        var wasShutdownGracefully = await TryGracefulShutdownAsync();
-        if (!wasShutdownGracefully)
-        {
-            _logger.Warn("Graceful shutdown failed, forcing server stop");
-            await ForceStopServerAsync();
-        }
-        // Wait a bit before starting again
-        await Task.Delay(2000);
-
-        return await StartServerAsync();
-    }
-    /// <summary>
     /// Gets the server status.
     /// </summary>
     public MineCraftServerStatus GetStatus()
     {
         if (!IsRunning)
         {
-            return MineCraftServerStatus.NotRunning;
+            return MineCraftServerStatus.ShouldBeStarted;
         }
 
-        return MineCraftServerStatus.Running;
+        return MineCraftServerStatus.ShouldBeMonitored;
+    }
+
+    /// <summary>
+    /// Gets the current server version from the extracted version in the output.
+    /// Returns "unknown" if version has not been extracted from server output yet.
+    /// </summary>
+    private string GetCurrentVersionFromFiles()
+    {
+        return _currentVersion;
     }
 
     private async Task MonitorProcessOutputAsync()
@@ -313,7 +325,13 @@ public partial class MineCraftServerService
             var line = await _serverProcess.StandardOutput.ReadLineAsync(cts.Token);
             if (!string.IsNullOrEmpty(line))
             {
-                _logger.Info($"[SERVER OUTPUT] {line}");
+                _logger.Info($"{line}");
+                
+                // Extract version from server output
+                if (line.Contains("Version:"))
+                {
+                    ExtractVersionFromOutput(line);
+                }
             }
             else
             {
@@ -328,6 +346,32 @@ public partial class MineCraftServerService
                 _logger.Warn($"Server exited with code: {_serverProcess.ExitCode}");
             }
             _isRunning = false;
+        }
+    }
+
+    /// <summary>
+    /// Extracts the version number from server output line containing "Version: X.X.X.X".
+    /// </summary>
+    private void ExtractVersionFromOutput(string outputLine)
+    {
+        try
+        {
+            // Look for pattern like "Version: 1.21.120.4"
+            var versionIndex = outputLine.IndexOf("Version:");
+            if (versionIndex >= 0)
+            {
+                var versionPart = outputLine.Substring(versionIndex + "Version:".Length).Trim();
+                // Take the first token (version number) before any space or bracket
+                var version = versionPart.Split(new[] { ' ', '[', ']' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                if (!string.IsNullOrEmpty(version))
+                {
+                    _currentVersion = version;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to extract version from output");
         }
     }
 

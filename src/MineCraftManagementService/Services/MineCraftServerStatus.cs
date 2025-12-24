@@ -2,8 +2,11 @@ namespace MineCraftManagementService.Services;
 
 public enum MineCraftServerStatus
 {
-    NotRunning,
-    Running,
+    ShouldBeStarted,
+    ShouldBePatched,
+    ShouldBeStopped,
+    ShouldBeMonitored,
+    ShouldBeIdle,
     Starting,
     Stopping,
     Error

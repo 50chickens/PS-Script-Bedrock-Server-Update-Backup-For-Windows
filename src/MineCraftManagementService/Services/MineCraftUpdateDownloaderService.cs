@@ -1,3 +1,4 @@
+using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
 
@@ -6,7 +7,7 @@ namespace MineCraftManagementService.Services;
 /// <summary>
 /// Handles checking for Bedrock server updates, downloading them
 /// </summary>
-public class MineCraftUpdateDownloaderService
+public class MineCraftUpdateDownloaderService : IMineCraftUpdateDownloaderService
 {
     private readonly ILog<MineCraftUpdateDownloaderService> _log;
     

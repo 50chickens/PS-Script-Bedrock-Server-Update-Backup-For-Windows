@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.NetworkInformation;
+using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
 
@@ -9,7 +10,7 @@ namespace MineCraftManagementService.Services;
 /// Service for checking and cleaning up existing processes and port conflicts before server startup.
 /// No exception handling - exceptions bubble to WindowsBackgroundService.
 /// </summary>
-public class PreFlightCheckService
+public class PreFlightCheckService : IPreFlightCheckService
 {
     private readonly ILog<PreFlightCheckService> _logger;
     private readonly int[] _requiredPorts;

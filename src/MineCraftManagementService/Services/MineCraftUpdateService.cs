@@ -1,3 +1,4 @@
+using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
 
@@ -6,9 +7,10 @@ namespace MineCraftManagementService.Services;
 /// <summary>
 /// Handles checking for Bedrock server updates, downloading them
 /// </summary>
-public class MineCraftUpdateService
+public class MineCraftUpdateService : IMineCraftUpdateService
 {
     private readonly ILog<MineCraftUpdateService> _log;
+    private readonly IMineCraftServerService _minecraftService;
     
     private readonly string _serverPath;
     private MineCraftServerOptions _options;
@@ -17,27 +19,29 @@ public class MineCraftUpdateService
 
     public MineCraftUpdateService(
         ILog<MineCraftUpdateService> logger,
-        MineCraftServerService minecraftService,
+        IMineCraftServerService minecraftService,
         MineCraftServerOptions options)
     {
         _log = logger ?? throw new ArgumentNullException(nameof(logger));
+        _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _serverPath = _options.ServerPath;
     }
 
     /// <summary>
-    /// Checks for updates once per day and applies them if available.
+    /// Checks for updates once per day by comparing the latest version from Microsoft API
+    /// with the provided current version.
     /// </summary>
-    public async Task<(bool, string, string)> NewVersionIsAvailable(CancellationToken cancellationToken = default)
+    public async Task<(bool, string, string)> NewVersionIsAvailable(string currentVersion, CancellationToken cancellationToken = default)
     {
         // Check if 24 hours have passed since last update check
-        if (DateTime.UtcNow - _lastUpdateCheckTime < _updateCheckInterval)
+        if (DateTime.Now - _lastUpdateCheckTime < _updateCheckInterval)
         {
-            _log.Debug($"Update check skipped (last check was {DateTime.UtcNow - _lastUpdateCheckTime:hh\\:mm\\:ss} ago)");
+            _log.Debug($"Update check skipped (last check was {DateTime.Now - _lastUpdateCheckTime:hh\\:mm\\:ss} ago)");
             return (false, "Update check skipped: checked recently.", "");
         }
 
-        _lastUpdateCheckTime = DateTime.UtcNow;
+        _lastUpdateCheckTime = DateTime.Now;
 
         _log.Info("Checking for Bedrock server updates...");
 
@@ -48,7 +52,6 @@ public class MineCraftUpdateService
             return (false, "Failed to determine latest Bedrock server version", "");
         }
 
-        var currentVersion = GetCurrentVersion();
         _log.Info($"Current version: {currentVersion}, Latest version: {latestVersion}");
 
         // Compare versions
@@ -79,31 +82,6 @@ public class MineCraftUpdateService
             _log.Info("Latest version from Microsoft API: " + version);
             return version;
 
-    }
-
-    /// <summary>
-    /// Gets the current Bedrock server version from server.properties.
-    /// </summary>
-    private string GetCurrentVersion()
-    {
-        var propertiesFile = Path.Combine(_serverPath, "server.properties");
-        if (!File.Exists(propertiesFile))
-        {
-            _log.Warn("server.properties not found");
-            return "unknown";
-        }
-
-        // Try to get version from the executable name or a version file
-        var versionFile = Path.Combine(_serverPath, "VERSION.TXT");
-        if (File.Exists(versionFile))
-        {
-            var version = File.ReadAllText(versionFile).Trim();
-            if (!string.IsNullOrEmpty(version))
-                return version;
-        }
-
-        // Fallback: return unknown
-        return "unknown";
     }
 
     /// <summary>

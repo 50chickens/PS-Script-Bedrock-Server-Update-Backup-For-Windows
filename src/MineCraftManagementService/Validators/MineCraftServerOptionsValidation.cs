@@ -2,7 +2,7 @@ using Microsoft.Extensions.Options;
 using System.ComponentModel.DataAnnotations;
 using MineCraftManagementService.Models;
 
-namespace MineCraftManagementService;
+namespace MineCraftManagementService.Validators;
 
 public class MineCraftServerOptionsValidation : IValidateOptions<MineCraftServerOptions>
 {

@@ -1,3 +1,4 @@
+using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
 
@@ -6,7 +7,7 @@ namespace MineCraftManagementService.Services;
 /// <summary>
 /// Handles checking for Bedrock server updates, downloading them
 /// </summary>
-public class MineCraftBackupService
+public class MineCraftBackupService : IMineCraftBackupService
 {
     private readonly ILog<MineCraftBackupService> _log;
     
@@ -27,7 +28,7 @@ public class MineCraftBackupService
     public string CreateBackupZipFromServerFolder()
     {
         
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var backupDir = _options.BackupFolderName;
         if (!Directory.Exists(backupDir))
         {
