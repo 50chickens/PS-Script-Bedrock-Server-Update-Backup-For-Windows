@@ -24,6 +24,8 @@ public class MineCraftBackupService : IMineCraftBackupService
 
     /// <summary>
     /// Creates a zip file backup of the current server installation.
+    /// If BackupOnlyUserData is true, backs up only worlds, logs, and backups folders.
+    /// If BackupOnlyUserData is false, backs up the entire server folder.
     /// </summary>
     public string CreateBackupZipFromServerFolder()
     {
@@ -38,12 +40,21 @@ public class MineCraftBackupService : IMineCraftBackupService
         var backupPath = Path.Combine(backupDir, $"minecraft_backup_{timestamp}.zip");
         _log.Info($"Creating backup of server at {backupPath}...");
 
-        // Create ZIP archive excluding 'worlds' and 'logs' directories
-        var tempBackupDir = Path.Combine(backupDir, $"temp_backup_{timestamp}");
-        CopyDirectory(_serverPath, tempBackupDir, new[] { "worlds", "logs", "backups" });
-
-        System.IO.Compression.ZipFile.CreateFromDirectory(tempBackupDir, backupPath);
-        Directory.Delete(tempBackupDir, true);
+        if (_options.BackupOnlyUserData)
+        {
+            // Backup only user data (selective folders)
+            _log.Debug("Backing up only user data (worlds, logs, backups folders)");
+            var tempBackupDir = Path.Combine(backupDir, $"temp_backup_{timestamp}");
+            CopyDirectory(_serverPath, tempBackupDir, new[] { "worlds", "logs", "backups" });
+            System.IO.Compression.ZipFile.CreateFromDirectory(tempBackupDir, backupPath);
+            Directory.Delete(tempBackupDir, true);
+        }
+        else
+        {
+            // Backup entire server folder
+            _log.Debug("Backing up entire server folder");
+            System.IO.Compression.ZipFile.CreateFromDirectory(_serverPath, backupPath);
+        }
 
         _log.Info("Backup created successfully");
         return backupPath;    

@@ -29,6 +29,11 @@ public class ServerAutoStartServiceTests
         _service = new ServerAutoStartService(_log, _minecraftService, _options);
     }
 
+    /// <summary>
+    /// Test: ApplyAutoStartAsync starts the server when auto-start is enabled.
+    /// Intent: Verify that enabling auto-start triggers server startup when the service is invoked.
+    /// Importance: Core auto-start functionality - ensures servers start automatically when configured.
+    /// </summary>
     [Test]
     public async Task ApplyAutoStartAsync_AutoStartEnabled_StartsServer()
     {
@@ -42,6 +47,11 @@ public class ServerAutoStartServiceTests
         await _minecraftService.Received(1).StartServerAsync();
     }
 
+    /// <summary>
+    /// Test: ApplyAutoStartAsync does not start the server when auto-start is disabled.
+    /// Intent: Verify that disabling auto-start prevents automatic startup even when the service is invoked.
+    /// Importance: Respects user configuration - allows manual server management when auto-start is disabled.
+    /// </summary>
     [Test]
     public async Task ApplyAutoStartAsync_AutoStartDisabled_DoesNotStartServer()
     {
@@ -53,6 +63,11 @@ public class ServerAutoStartServiceTests
         await _minecraftService.DidNotReceive().StartServerAsync();
     }
 
+    /// <summary>
+    /// Test: ApplyAutoStartAsync respects the configured delay before starting the server.
+    /// Intent: Verify that the service waits for the configured duration before triggering startup.
+    /// Importance: Allows delaying auto-start for controlled server restart sequences (e.g., after updates).
+    /// </summary>
     [Test]
     public async Task ApplyAutoStartAsync_AutoStartEnabled_WaitsForDelay()
     {
@@ -70,6 +85,11 @@ public class ServerAutoStartServiceTests
         await _minecraftService.Received(1).StartServerAsync();
     }
 
+    /// <summary>
+    /// Test: ApplyAutoStartAsync handles gracefully when server startup fails.
+    /// Intent: Verify that startup failures don't cause exceptions and are logged appropriately.
+    /// Importance: Robustness - ensures the service continues operation even if startup fails.
+    /// </summary>
     [Test]
     public async Task ApplyAutoStartAsync_StartServerFails_LogsError()
     {

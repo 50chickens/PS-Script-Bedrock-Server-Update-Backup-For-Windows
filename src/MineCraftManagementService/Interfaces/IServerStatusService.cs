@@ -4,5 +4,6 @@ namespace MineCraftManagementService.Interfaces;
 
 public interface IServerStatusService
 {
-    Task<MineCraftServerStatus> GetStatusAsync();
+    Task<MineCraftServerLifecycleStatus> GetLifeCycleStateAsync();
+    void RescheduleNextUpdateCheck(int updateCheckIntervalSeconds);
 }

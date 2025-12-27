@@ -16,13 +16,13 @@ public class ShutdownStatusFunc
     /// <summary>
     /// Returns ShouldBeStopped once, then returns ShouldBeIdle for all subsequent calls.
     /// </summary>
-    public async Task<MineCraftServerStatus> GetStatusAsync()
+    public async Task<MineCraftServerLifecycleStatus> GetStatusAsync()
     {
         if (!_returnedStopped)
         {
             _returnedStopped = true;
-            return MineCraftServerStatus.ShouldBeStopped;
+            return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStopped };
         }
-        return MineCraftServerStatus.ShouldBeIdle;
+        return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeIdle };
     }
 }

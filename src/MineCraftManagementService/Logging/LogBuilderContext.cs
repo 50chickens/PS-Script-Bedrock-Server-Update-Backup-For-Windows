@@ -13,6 +13,7 @@ namespace MineCraftManagementService.Logging
         {
             _configuration = configuration;
             Settings = configuration.GetSection("Logging").Get<LoggingSettings>() ?? new LoggingSettings();
+            LogLevel = Settings.GetLogLevel().ToCommonLoggingLevel();
         }
     }
 }

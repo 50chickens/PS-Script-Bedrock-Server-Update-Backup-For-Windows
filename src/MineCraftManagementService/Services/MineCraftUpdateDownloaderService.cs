@@ -33,11 +33,13 @@ public class MineCraftUpdateDownloaderService : IMineCraftUpdateDownloaderServic
             var downloadFileName = Path.Combine(Path.GetTempPath(), _options.DownloadFileName);
             using (var httpClient = new HttpClient())
             {
-                httpClient.Timeout = TimeSpan.FromMinutes(10);
+                // Use configurable timeout for download
+                httpClient.Timeout = TimeSpan.FromSeconds(_options.DownloadTimeoutSeconds);
                 using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
                 using var fileStream = File.Create(downloadFileName);
-                await contentStream.CopyToAsync(fileStream, cancellationToken);
+                // Use larger buffer for faster copying
+                await contentStream.CopyToAsync(fileStream, 1024 * 1024, cancellationToken);  // 1MB buffer
             }
 
             _log.Info($"Update downloaded to {downloadFileName}");

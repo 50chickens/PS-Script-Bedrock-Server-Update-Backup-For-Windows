@@ -51,6 +51,11 @@ public class MineCraftBackupServiceTests
         catch { /* Ignore cleanup errors */ }
     }
 
+    /// <summary>
+    /// Test: CreateBackupZipFromServerFolder returns a non-empty file path.
+    /// Intent: Verify that the backup service returns a valid path result after creating a backup.
+    /// Importance: Core backup functionality - ensures backup creation returns usable path information.
+    /// </summary>
     [Test]
     public void CreateBackupZipFromServerFolder_ReturnsFilePath()
     {
@@ -59,6 +64,11 @@ public class MineCraftBackupServiceTests
         Assert.That(result, Is.Not.Null.And.Not.Empty);
     }
 
+    /// <summary>
+    /// Test: CreateBackupZipFromServerFolder actually creates a physical zip file on disk.
+    /// Intent: Verify that the backup service creates the actual backup archive file.
+    /// Importance: Critical for data integrity - ensures backups are physically created, not just reported.
+    /// </summary>
     [Test]
     public void CreateBackupZipFromServerFolder_CreatesZipFile()
     {
@@ -68,6 +78,11 @@ public class MineCraftBackupServiceTests
         File.Delete(result); // Cleanup
     }
 
+    /// <summary>
+    /// Test: CreateBackupZipFromServerFolder generates a zip filename containing descriptive name and timestamp.
+    /// Intent: Verify that backup files have meaningful names that include timestamps for version tracking.
+    /// Importance: Usability - ensures backups can be identified by creation time and purpose.
+    /// </summary>
     [Test]
     public void CreateBackupZipFromServerFolder_ZipNameIncludesTimestamp()
     {

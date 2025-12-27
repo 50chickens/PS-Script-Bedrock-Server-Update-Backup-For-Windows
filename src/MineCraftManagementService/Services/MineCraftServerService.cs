@@ -292,19 +292,6 @@ public class MineCraftServerService : IMineCraftServerService
     }
 
     /// <summary>
-    /// Gets the server status.
-    /// </summary>
-    public MineCraftServerStatus GetStatus()
-    {
-        if (!IsRunning)
-        {
-            return MineCraftServerStatus.ShouldBeStarted;
-        }
-
-        return MineCraftServerStatus.ShouldBeMonitored;
-    }
-
-    /// <summary>
     /// Gets the current server version from the extracted version in the output.
     /// Returns "unknown" if version has not been extracted from server output yet.
     /// </summary>

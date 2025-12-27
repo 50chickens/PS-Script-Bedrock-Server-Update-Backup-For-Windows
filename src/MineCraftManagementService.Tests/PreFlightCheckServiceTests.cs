@@ -25,6 +25,11 @@ public class PreFlightCheckServiceTests
         _service = new PreFlightCheckService(_log, options);
     }
 
+    /// <summary>
+    /// Test: CheckAndCleanupAsync completes without throwing exceptions.
+    /// Intent: Verify that preflight checks can be executed without errors.
+    /// Importance: Ensures startup validation runs successfully - prevents initialization failures from breaking the service.
+    /// </summary>
     [Test]
     public async Task CheckAndCleanupAsync_CompletesSuccessfully()
     {

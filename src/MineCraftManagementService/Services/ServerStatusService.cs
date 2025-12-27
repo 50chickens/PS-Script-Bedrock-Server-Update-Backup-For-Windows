@@ -1,4 +1,3 @@
-using MineCraftManagementService.Extensions;
 using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
@@ -6,7 +5,7 @@ using MineCraftManagementService.Models;
 namespace MineCraftManagementService.Services;
 
 /// <summary>
-/// Determines the server status based on server state, version, and runtime.
+/// Determines the server lifecycle status based on server state, version, and runtime.
 /// </summary>
 public partial class ServerStatusService : IServerStatusService
 {
@@ -14,12 +13,17 @@ public partial class ServerStatusService : IServerStatusService
     private readonly IMineCraftServerService _minecraftService;
     private readonly IMineCraftUpdateService _updateCheckService;
 
-    private readonly int _updateCheckIntervalMs;
+    private readonly int _updateCheckIntervalSeconds;
     private readonly int _autoShutdownAfterSeconds;
     private readonly bool _enableAutoStart;
     private readonly int _minimumServerUptimeForUpdateSeconds;
     private bool _checkForUpdates;
-    private DateTime _lastUpdateCheckTime = DateTime.MinValue;
+    private string? _pendingPatchVersion = null;  // Version pending to be patched
+    
+    // Scheduler: tracks when each operation should next run
+    private DateTime _nextUpdateCheckTime = DateTime.MinValue;
+    private DateTime _nextAutoShutdownTime = DateTime.MinValue;
+    private DateTime _lastServerStartTime = DateTime.MinValue;
     
     public ServerStatusService(
         ILog<ServerStatusService> logger,
@@ -30,7 +34,7 @@ public partial class ServerStatusService : IServerStatusService
         _log = logger ?? throw new ArgumentNullException(nameof(logger));
         _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _updateCheckService = updateCheckService ?? throw new ArgumentNullException(nameof(updateCheckService));
-        _updateCheckIntervalMs = options.UpdateCheckIntervalSeconds * 1000;
+        _updateCheckIntervalSeconds = options.UpdateCheckIntervalSeconds;
         _autoShutdownAfterSeconds = options.AutoShutdownAfterSeconds;
         _enableAutoStart = options.EnableAutoStart;
         _minimumServerUptimeForUpdateSeconds = options.MinimumServerUptimeForUpdateSeconds;
@@ -38,142 +42,261 @@ public partial class ServerStatusService : IServerStatusService
     }
 
     /// <summary>
-    /// Determines the current server status based on server state, version, and runtime.
-    /// Implements periodic update checking: every UpdateCheckIntervalSeconds, checks for available patches.
-    /// If a patch is available while monitoring a running server, transitions to ShouldBeStopped state.
-    /// If EnableAutoStart is false and server is not running, returns ShouldBeIdle instead of ShouldBeStarted.
-    /// Logs auto-shutdown remaining time when server is being monitored with auto-shutdown configured.
+    /// Determines the current server lifecycle status based on server state, version, and runtime.
+    /// Uses a scheduler-based approach: each operation (monitoring, update checks, auto-shutdown) has a scheduled time.
+    /// Operations are only performed when current time reaches their scheduled time.
     /// </summary>
-    public async Task<MineCraftServerStatus> GetStatusAsync()
+    public async Task<MineCraftServerLifecycleStatus> GetLifeCycleStateAsync()
     {
-        if (ShouldBeStopped())
+        try
         {
-            return MineCraftServerStatus.ShouldBeStopped;
-        }
+            _log.Info("Evaluating server lifecycle status...");
 
-        if (await ShouldBeStoppedForUpdate())
+            // Handle server start time reset (when server transitions from stopped to running)
+            if (ShouldResetUpdateTimer())
+            {
+                _log.Debug("Server start time changed, timers reset as needed.");
+                ResetUpdateTimer();
+                ResetAutoShutdownTimer();
+            }
+
+            // Evaluate lifecycle state in order of priority
+            if (await ShouldBeStopped())
+            {
+                _log.Debug("Determined lifecycle status: ShouldBeStopped");
+                return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStopped };
+            }
+
+            if (ShouldBePatched())
+            {
+                var patchVersion = _pendingPatchVersion;
+                _pendingPatchVersion = null;  // Clear pending patch
+                _log.Debug($"Determined lifecycle status: ShouldBePatched (version {patchVersion})");
+                return new MineCraftServerLifecycleStatus
+                {
+                    LifecycleStatus = MineCraftServerStatus.ShouldBePatched,
+                    PatchVersion = patchVersion
+                };
+            }
+
+            if (ShouldBeIdleCooldown())
+            {
+                _log.Debug($"Determined lifecycle status: ShouldBeIdle (auto-shutdown cooldown)");
+                return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeIdle };
+            }
+
+            if (ShouldBeStarted())
+            {
+                _log.Debug("Determined lifecycle status: ShouldBeStarted");
+                return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStarted };
+            }
+
+            if (ShouldBeIdle())
+            {
+                _log.Debug("Determined lifecycle status: ShouldBeIdle");
+                return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeIdle };
+            }
+
+            if (ShouldBeMonitored())
+            {
+                _log.Debug("Determined lifecycle status: ShouldBeMonitored");
+                return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeMonitored };
+            }
+            _log.Error("No applicable lifecycle status found.");
+            // Fallback - should not reach here
+            throw new InvalidOperationException("Unable to determine server lifecycle status.");
+        }
+        catch (Exception ex)
         {
-            return MineCraftServerStatus.ShouldBeStopped;
+            _log.Error(ex, "Exception in GetLifeCycleStateAsync");
+            throw;
         }
+    }
 
-        if (await ShouldBePatched())
+    private void ResetUpdateTimer()
+    {
+        
+        _lastServerStartTime = _minecraftService.ServerStartTime;
+
+        // Only reset update check time on initial start, not after restarts
+        if (_nextUpdateCheckTime != DateTime.MinValue)
         {
-            return MineCraftServerStatus.ShouldBePatched;
+            _log.Debug($"Server restarted. Next update check scheduled for {_nextUpdateCheckTime:yyyy-MM-dd HH:mm:ss.fff}");
         }
+        else
+        {
+            _nextUpdateCheckTime = DateTime.Now.AddSeconds(_minimumServerUptimeForUpdateSeconds);
+            _log.Debug($"Server started. Scheduled first update check at {_nextUpdateCheckTime:yyyy-MM-dd HH:mm:ss.fff}");
+        }
+    }
+    private void ResetAutoShutdownTimer()
+    {       
+        _nextAutoShutdownTime = DateTime.Now.AddSeconds(_autoShutdownAfterSeconds);
+        _log.Debug($"Auto-shutdown timer reset. Next auto-shutdown scheduled for {_nextAutoShutdownTime:yyyy-MM-dd HH:mm:ss.fff}");        
+    }
+    private bool ShouldResetUpdateTimer()
+    {
+        return _minecraftService.IsRunning && _lastServerStartTime != _minecraftService.ServerStartTime;
+    }
 
+    /// <summary>
+    /// Checks if the server should be stopped based on scheduled operations.
+    /// Returns true if server should stop for either auto-shutdown or update availability.
+    /// </summary>
+    private async Task<bool> ShouldBeStopped()
+    {
+        var (shouldStop, _) = await CheckIfServerShouldStop();
+        return shouldStop;
+    }
+
+    /// <summary>
+    /// Checks if server is stopped and has a pending patch waiting to be applied.
+    /// </summary>
+    private bool ShouldBePatched()
+    {
+        return !_minecraftService.IsRunning && _pendingPatchVersion != null;
+    }
+
+    /// <summary>
+    /// Checks if server is stopped and within auto-shutdown cooldown period.
+    /// When auto-shutdown triggers, the next restart is delayed by the auto-shutdown duration.
+    /// </summary>
+    private bool ShouldBeIdleCooldown()
+    {
+        return !_minecraftService.IsRunning && _autoShutdownAfterSeconds > 0 && DateTime.Now < _nextAutoShutdownTime;
+    }
+
+    /// <summary>
+    /// Checks if server should be started (server not running and auto-start is enabled).
+    /// </summary>
+    private bool ShouldBeStarted()
+    {
+        return !_minecraftService.IsRunning && _enableAutoStart;
+    }
+
+    /// <summary>
+    /// Checks if server should be idle (server not running and auto-start is disabled).
+    /// </summary>
+    private bool ShouldBeIdle()
+    {
+        return !_minecraftService.IsRunning && !_enableAutoStart;
+    }
+
+    /// <summary>
+    /// Checks if server should be monitored (server is running and up-to-date).
+    /// Logs remaining time to next scheduled operations.
+    /// </summary>
+    private bool ShouldBeMonitored()
+    {
+        if (_minecraftService.IsRunning)
+        {
+            LogScheduledOperationStatus();
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if the server should be stopped based on scheduled operations.
+    /// Returns tuple: (shouldStop, reason).
+    /// Uses scheduler-based approach: checks if current time has reached scheduled stop times.
+    /// First update check is scheduled at MinimumServerUptimeForUpdateSeconds.
+    /// Subsequent update checks are scheduled at UpdateCheckIntervalSeconds intervals (24 hours).
+    /// </summary>
+    internal async Task<(bool shouldStop, string reason)> CheckIfServerShouldStop()
+    {
         if (!_minecraftService.IsRunning)
         {
-            return ShouldBeStartedOrIdle();
+            return (false, "");
         }
 
-        // Server is running and up-to-date, log auto-shutdown remaining time if configured
-        LogAutoShutdownRemainingTime();
-        return MineCraftServerStatus.ShouldBeMonitored;
-    }
-
-    internal bool ShouldBeStopped()
-    {
-        // Check if auto-shutdown time exceeded
-        if (_minecraftService.ServerStartTime.HasExceededAutoShutdownTime(_autoShutdownAfterSeconds, out _))
+        // First, check if an update check is scheduled and should run
+        if (_checkForUpdates && DateTime.Now >= _nextUpdateCheckTime)
         {
-            // If server is running, stop it
-            if (_minecraftService.IsRunning)
+            try
             {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    internal async Task<bool> ShouldBeStoppedForUpdate()
-    {
-        // Check if update is available and server is running - need to stop for patching
-        // Always check for updates, but only stop if minimum uptime has been reached
-        if (_checkForUpdates && _minecraftService.IsRunning &&
-            DateTime.Now - _lastUpdateCheckTime >= TimeSpan.FromMilliseconds(_updateCheckIntervalMs))
-        {
-            var (updateAvailable, _, newVersion) = await _updateCheckService.NewVersionIsAvailable(_minecraftService.CurrentVersion);
-            if (updateAvailable)
-            {
-                if (HasMinimumIdleTime())
+                _log.Debug($"Scheduled update check time reached. Checking for updates... (Now: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff})");
+                var (updateAvailable, message, newVersion) = await _updateCheckService.NewVersionIsAvailable(_minecraftService.CurrentVersion);
+                _log.Debug($"Update check complete. Available: {updateAvailable}, Message: {message}, NewVersion: {newVersion}");
+                
+                if (updateAvailable)
                 {
-                    _log.Info($"Update available: current version {_minecraftService.CurrentVersion} → {newVersion}");
-                    return true; // Stop server so it can be patched (don't update _lastUpdateCheckTime so ShouldBePatched can check immediately)
+                    _log.Info($"Update available: current version {_minecraftService.CurrentVersion} → {newVersion}. Server will be stopped for patching.");
+                    _pendingPatchVersion = newVersion;  // Store for later patching
+                    // Reschedule next check for 24 hours from now
+                    _nextUpdateCheckTime = DateTime.Now.AddSeconds(_updateCheckIntervalSeconds);
+                    _log.Debug($"Rescheduled next update check for {_nextUpdateCheckTime:yyyy-MM-dd HH:mm:ss.fff} (24 hours from now)");
+                    return (true, "update available for patching");
                 }
-                else
-                {
-                    _log.Info($"Update available but server hasn't been idle long enough. Minimum uptime required: {_minimumServerUptimeForUpdateSeconds} seconds");
-                }
+                
+                // Mark that first check has been performed and reschedule for 24 hours
+                _nextUpdateCheckTime = DateTime.Now.AddSeconds(_updateCheckIntervalSeconds);
+                _log.Debug($"No update available. Rescheduled next update check for {_nextUpdateCheckTime:yyyy-MM-dd HH:mm:ss.fff} (24 hours from now)");
             }
-            else
+            catch (Exception ex)
             {
-                // No update available, update the timestamp to avoid checking too frequently
-                _lastUpdateCheckTime = DateTime.Now;
+                _log.Error(ex, "Exception in CheckIfServerShouldStop while checking for updates");
+                // Reschedule even on error so we don't get stuck
+                _nextUpdateCheckTime = DateTime.Now.AddSeconds(_updateCheckIntervalSeconds);
             }
         }
 
-        return false;
-    }
-
-    internal async Task<bool> ShouldBePatched()
-    {
-        // Check for available patches when server is stopped
-        // Note: if server is running, ShouldBeStoppedForUpdate will have already checked and returned ShouldBeStopped
-        // Minimum uptime requirement was already validated in ShouldBeStoppedForUpdate before stopping the server
-        if (_checkForUpdates && !_minecraftService.IsRunning && 
-            DateTime.Now - _lastUpdateCheckTime >= TimeSpan.FromMilliseconds(_updateCheckIntervalMs))
+        // Second, check if auto-shutdown is scheduled and should run
+        if (_autoShutdownAfterSeconds > 0 && DateTime.Now >= _nextAutoShutdownTime)
         {
-            _lastUpdateCheckTime = DateTime.Now;
-            
-            var (updateAvailable, _, newVersion) = await _updateCheckService.NewVersionIsAvailable(_minecraftService.CurrentVersion);
-            if (updateAvailable)
-            {
-                _log.Info($"Update available: current version {_minecraftService.CurrentVersion} → {newVersion}");
-                return true; // Patch the stopped server
-            }
+            _log.Info($"Scheduled auto-shutdown time reached.");
+            _nextAutoShutdownTime = DateTime.Now.AddSeconds(_autoShutdownAfterSeconds);
+            return (true, "auto-shutdown timer reached");
         }
 
-        return false;
+        return (false, "");
     }
 
-    internal bool HasMinimumIdleTime()
-    {
-        // Check if server has been up for minimum time before allowing patch
-        // If server was never started (MinValue), it's not eligible for patching
-        if (_minecraftService.ServerStartTime == DateTime.MinValue)
-        {
-            return false;
-        }
-
-        var uptime = DateTime.Now - _minecraftService.ServerStartTime;
-        return uptime.TotalSeconds >= _minimumServerUptimeForUpdateSeconds;
-    }
-
+    /// <summary>
+    /// Checks if server should be idle (server not running and auto-start is disabled).
+    /// </summary>
     internal MineCraftServerStatus ShouldBeStartedOrIdle()
     {
         // If auto-start is disabled, go to idle instead of starting
         return _enableAutoStart ? MineCraftServerStatus.ShouldBeStarted : MineCraftServerStatus.ShouldBeIdle;
     }
 
-    private void LogAutoShutdownRemainingTime()
+    private void LogScheduledOperationStatus()
     {
-        if (_autoShutdownAfterSeconds <= 0 || !_minecraftService.IsRunning)
+        var now = DateTime.Now;
+        
+        // Log time until next auto-shutdown
+        if (_autoShutdownAfterSeconds > 0)
         {
-            return;
+            var remainingSeconds = (int)(_nextAutoShutdownTime - now).TotalSeconds;
+            if (remainingSeconds > 0)
+            {
+                _log.Info($"Auto-shutdown in {remainingSeconds} seconds.");
+            }
         }
 
-        var serverStartTime = _minecraftService.ServerStartTime;
-        if (serverStartTime == DateTime.MinValue)
+        // Log time until next update check
+        if (_checkForUpdates)
         {
-            return;
+            var remainingSeconds = (int)(_nextUpdateCheckTime - now).TotalSeconds;
+            if (remainingSeconds > 0)
+            {
+                _log.Debug($"Next update check in {remainingSeconds} seconds.");
+            }
+            else
+            {
+                _log.Debug($"Update check is due now.");
+            }
         }
+    }
 
-        var elapsed = DateTime.Now - serverStartTime;
-        var remaining = _autoShutdownAfterSeconds - (int)elapsed.TotalSeconds;
-        if (remaining > 0)
-        {
-            _log.Info($"Auto-shutdown in {remaining} seconds.");
-        }
+    /// <summary>
+    /// Reschedules the next update check to run after the specified interval.
+    /// Called after a patch is successfully applied to set the next check time.
+    /// </summary>
+    public void RescheduleNextUpdateCheck(int updateCheckIntervalSeconds)
+    {
+        _nextUpdateCheckTime = DateTime.Now.AddSeconds(updateCheckIntervalSeconds);
+        _log.Debug($"Rescheduled next update check for {_nextUpdateCheckTime:yyyy-MM-dd HH:mm:ss.fff} ({updateCheckIntervalSeconds} seconds from now)");
     }
 }

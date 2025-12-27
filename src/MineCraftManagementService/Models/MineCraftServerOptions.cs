@@ -9,8 +9,11 @@ public class MineCraftServerOptions
     public required string MineCraftVersionApiUrl { get; set; }
     public bool UpdateMineCraftOnServiceStart { get; set; }
     public bool CheckForUpdates { get; set; }
-    public required string BackupFolderName { get; set; } 
-    public string DownloadFileName { get; set; } = $"bedrock-server-{DateTime.Now:MMddyy}.zip";
+    public required string BackupFolderName { get; set; }
+    public bool BackupOnlyUserData { get; set; } = false;
+    public string DownloadFolderName { get; set; } = "";
+    public string DownloadFileName { get; set; } = "bedrock-server.zip";
+    public bool OverwriteExistingDownloadFile { get; set; } = false;
     public int MaxMemoryMB { get; set; }
     public int StartTimeoutSeconds { get; set; }
     public int StopTimeoutSeconds { get; set; }
@@ -29,4 +32,5 @@ public class MineCraftServerOptions
     public int MonitoringIntervalSeconds { get; set; }
     public int UpdateCheckIntervalSeconds { get; set; }
     public int MinimumServerUptimeForUpdateSeconds { get; set; }
+    public int DownloadTimeoutSeconds { get; set; } = 300;
 }

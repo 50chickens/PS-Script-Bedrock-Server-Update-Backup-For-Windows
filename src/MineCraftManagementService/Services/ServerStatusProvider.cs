@@ -4,7 +4,7 @@ using MineCraftManagementService.Services;
 namespace MineCraftManagementService.Services;
 
 /// <summary>
-/// Provides server status with the ability to switch behavior during shutdown.
+/// Provides server lifecycle status with the ability to switch behavior during shutdown.
 /// Normally delegates to the normal status Func for real status checks.
 /// During shutdown, switches to the shutdown Func which returns ShouldBeStopped then ShouldBeIdle to prevent restart.
 /// </summary>
@@ -22,13 +22,13 @@ public class ServerStatusProvider : IServerStatusProvider
     /// <summary>
     /// Gets the appropriate status Func based on whether we're shutting down.
     /// </summary>
-    public Func<Task<MineCraftServerStatus>> GetStatusFunc => 
+    public Func<Task<MineCraftServerLifecycleStatus>> GetStatusFunc => 
         _isShuttingDown ? _statusFuncs.ShutdownStatusFunc : _statusFuncs.NormalStatusFunc;
 
     /// <summary>
-    /// Gets the current server status using the active Func.
+    /// Gets the current server lifecycle status using the active Func.
     /// </summary>
-    public async Task<MineCraftServerStatus> GetStatusAsync()
+    public async Task<MineCraftServerLifecycleStatus> GetLifeCycleStateAsync()
     {
         return await GetStatusFunc();
     }

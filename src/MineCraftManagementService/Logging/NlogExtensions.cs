@@ -52,4 +52,19 @@ public static class NLogExtensions
             _ => NLog.LogLevel.Info,
         };
     }
+
+    public static Common.Logging.LogLevel ToCommonLoggingLevel(this NLog.LogLevel level)
+    {
+        return level.Name switch
+        {
+            "Trace" => Common.Logging.LogLevel.Trace,
+            "Debug" => Common.Logging.LogLevel.Debug,
+            "Info" => Common.Logging.LogLevel.Info,
+            "Warn" => Common.Logging.LogLevel.Warn,
+            "Error" => Common.Logging.LogLevel.Error,
+            "Fatal" => Common.Logging.LogLevel.Fatal,
+            "Off" => Common.Logging.LogLevel.Off,
+            _ => Common.Logging.LogLevel.Info,
+        };
+    }
 }

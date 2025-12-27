@@ -69,14 +69,18 @@ internal class Program
             builder.Services.AddSingleton(sp => 
             {
                 var statusService = sp.GetRequiredService<IServerStatusService>();
+                var autoShutdownIdleFunc = new AutoShutdownIdleFunc();
                 
                 return new ServerStatusFuncs
                 {
                     // Normal operation: delegate to the real status service
-                    NormalStatusFunc = () => statusService.GetStatusAsync(),
+                    NormalStatusFunc = () => statusService.GetLifeCycleStateAsync(),
                     
                     // Shutdown operation: return ShouldBeStopped once, then ShouldBeIdle
-                    ShutdownStatusFunc = new ShutdownStatusFunc().GetStatusAsync
+                    ShutdownStatusFunc = new ShutdownStatusFunc().GetStatusAsync,
+                    
+                    // Auto-shutdown idle: always return ShouldBeIdle during cooldown
+                    AutoShutdownIdleFunc = () => autoShutdownIdleFunc.GetStatusAsync()
                 };
             });
             builder.Services.AddSingleton<IServerStatusProvider, ServerStatusProvider>();

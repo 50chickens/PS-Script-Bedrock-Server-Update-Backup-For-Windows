@@ -27,7 +27,7 @@ namespace MineCraftManagementService.Logging
             var logEventInfo = new NLog.LogEventInfo
             {
                 Level = level.ToNlogLogLevel(),
-                Message = message?.ToString(),
+                Message = message?.ToString() ?? string.Empty,
                 Exception = exception
             };
             _logger.Log(logEventInfo);

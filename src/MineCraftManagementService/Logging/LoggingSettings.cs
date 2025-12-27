@@ -7,6 +7,12 @@ namespace MineCraftManagementService.Logging
         public bool EnableConsoleLogging { get; set; } = true;
         public bool EnableFileLogging { get; set; } = false;
         public string LogFilePath { get; set; } = "alsa_net.log";
-        public LogLevel MinimumLogLevel { get; set; } = LogLevel.Info;
+        private string _minimumLogLevel = "Info";
+        public string MinimumLogLevel 
+        { 
+            get => _minimumLogLevel;
+            set => _minimumLogLevel = value;
+        }
+        public LogLevel GetLogLevel() => LogLevel.FromString(_minimumLogLevel);
     }
 }

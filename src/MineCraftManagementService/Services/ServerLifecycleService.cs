@@ -68,11 +68,11 @@ public class ServerLifecycleService : IServerLifecycleService
         {
             try
             {
-                var status = await _statusProvider.GetStatusAsync();
-                _logger.Trace($"Server status: {status}");
+                var lifecycleState = await _statusProvider.GetLifeCycleStateAsync();
+                _logger.Trace($"Server lifecycle status: {lifecycleState.LifecycleStatus}");
 
                 // Process server state
-                switch (status)
+                switch (lifecycleState.LifecycleStatus)
                 {
                     case MineCraftServerStatus.ShouldBeStarted:
                         await HandleStartServerAsync();
@@ -87,7 +87,7 @@ public class ServerLifecycleService : IServerLifecycleService
                         continue;
                         
                     case MineCraftServerStatus.ShouldBePatched:
-                        await HandlePatchServerAsync(cancellationToken);
+                        await HandlePatchServerAsync(lifecycleState.PatchVersion ?? "", cancellationToken);
                         // Recheck status after patch to see if server should be started or if another patch is needed
                         continue;
 
@@ -104,7 +104,7 @@ public class ServerLifecycleService : IServerLifecycleService
                         break;
 
                     default:
-                        _logger.Warn($"Unknown server status: {status}");
+                        _logger.Warn($"Unknown server lifecycle status: {lifecycleState.LifecycleStatus}");
                         break;
                 }
 
@@ -145,11 +145,21 @@ public class ServerLifecycleService : IServerLifecycleService
             _logger.Warn("Graceful shutdown failed, forcing server stop");
             await _minecraftService.ForceStopServerAsync();
         }
+
+        // Allow ports to be released before attempting to start server again
+        // This prevents "port already in use" errors on quick restart cycles
+        _logger.Debug("Waiting for ports to be released after server shutdown...");
+        await Task.Delay(2000);
     }
     
-    private async Task HandlePatchServerAsync(CancellationToken cancellationToken)
+    private async Task HandlePatchServerAsync(string patchVersion, CancellationToken cancellationToken)
     {
-        _logger.Info("Applying server update patch...");
+        if (string.IsNullOrWhiteSpace(patchVersion))
+        {
+            throw new InvalidOperationException("Patch version cannot be null or empty when applying patch");
+        }
+
+        _logger.Info($"Applying server update patch to version {patchVersion}...");
         
         // Server should already be stopped at this point, no need to shutdown again
         // ShouldBePatched already confirmed an update is available, so no need to check again
@@ -158,9 +168,14 @@ public class ServerLifecycleService : IServerLifecycleService
         var backupPath = _backupService.CreateBackupZipFromServerFolder();
         _logger.Info($"Backed up current installation to {backupPath}");
         
-        // Apply the patch - the patch service will handle getting the latest version
-        await _patchService.ApplyUpdateAsync(null, cancellationToken);
-        _logger.Info("Patch applied successfully. Next cycle will start the server.");
+        // Apply the patch with the specific version
+        await _patchService.ApplyUpdateAsync(patchVersion, cancellationToken);
+        _logger.Info("Patch applied successfully.");
+        
+        // Reschedule the next update check to run after UpdateCheckIntervalSeconds (24 hours)
+        // This ensures the next check won't happen immediately after restart
+        _statusService.RescheduleNextUpdateCheck(_options.UpdateCheckIntervalSeconds);
+        _logger.Info($"Next update check scheduled for {_options.UpdateCheckIntervalSeconds} seconds from now.");
     }
 
     private async Task HandleServerMonitoringAsync(CancellationToken cancellationToken)
@@ -183,14 +198,29 @@ public class ServerLifecycleService : IServerLifecycleService
     /// <summary>
     /// Stops the server gracefully and signals shutdown to the status provider.
     /// Prevents server restart by switching the status provider to shutdown mode.
+    /// The actual shutdown is handled by the ManageLifecycleLoopAsync via HandleStopServerAsync.
     /// </summary>
     public async Task StopServerAsync()
     {
         _statusProvider.SetShutdownMode();
-        var wasShutdownGracefully = await _minecraftService.TryGracefulShutdownAsync();
-        if (!wasShutdownGracefully)
+        
+        // The ManageLifecycleLoopAsync will see ShouldBeStopped from ShutdownStatusFunc
+        // and handle the actual shutdown via HandleStopServerAsync.
+        // Wait with a timeout to ensure server stops.
+        int maxWaitMs = 60000; // 60 seconds
+        int checkIntervalMs = 100;
+        int elapsedMs = 0;
+        
+        while (_minecraftService.IsRunning && elapsedMs < maxWaitMs)
         {
-            _logger.Warn("Graceful shutdown failed, forcing server stop");
+            await Task.Delay(checkIntervalMs);
+            elapsedMs += checkIntervalMs;
+        }
+        
+        // If server still running after timeout, force stop
+        if (_minecraftService.IsRunning)
+        {
+            _logger.Warn("Server did not stop within timeout, forcing stop");
             await _minecraftService.ForceStopServerAsync();
         }
     }

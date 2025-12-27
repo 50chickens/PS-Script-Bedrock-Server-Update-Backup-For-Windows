@@ -22,8 +22,11 @@ namespace MineCraftManagementService.Logging
             foreach (var logRegistration in _logRegistrations)
             {
                 // add target using its configured name (or fallback to a generated name)
-                var targetName = !string.IsNullOrEmpty(logRegistration.Target?.Name) ? logRegistration.Target.Name : "target";
-                nlogConfiguration.AddTarget(targetName, logRegistration.Target);
+                if (logRegistration.Target != null)
+                {
+                    var targetName = !string.IsNullOrEmpty(logRegistration.Target.Name) ? logRegistration.Target.Name : "target";
+                    nlogConfiguration.AddTarget(targetName, logRegistration.Target);
+                }
                 // add any logging rules configured for this registration
                 if (logRegistration.LoggingRules != null)
                 {

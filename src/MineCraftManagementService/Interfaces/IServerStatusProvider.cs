@@ -3,14 +3,14 @@ using MineCraftManagementService.Services;
 namespace MineCraftManagementService.Interfaces;
 
 /// <summary>
-/// Provides server status with the ability to switch behavior during shutdown.
+/// Provides server lifecycle status with the ability to switch behavior during shutdown.
 /// </summary>
 public interface IServerStatusProvider
 {
     /// <summary>
-    /// Gets the current server status.
+    /// Gets the current server lifecycle state.
     /// </summary>
-    Task<MineCraftServerStatus> GetStatusAsync();
+    Task<MineCraftServerLifecycleStatus> GetLifeCycleStateAsync();
     
     /// <summary>
     /// Switches to shutdown mode, which returns ShouldBeStopped once, then ShouldBeIdle.

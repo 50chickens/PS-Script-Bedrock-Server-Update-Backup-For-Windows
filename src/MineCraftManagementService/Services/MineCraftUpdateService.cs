@@ -14,8 +14,7 @@ public class MineCraftUpdateService : IMineCraftUpdateService
     
     private readonly string _serverPath;
     private MineCraftServerOptions _options;
-    private DateTime _lastUpdateCheckTime = DateTime.MinValue;
-    private readonly TimeSpan _updateCheckInterval = TimeSpan.FromHours(24);
+    private readonly int _minimumServerUptimeForUpdateSeconds;
 
     public MineCraftUpdateService(
         ILog<MineCraftUpdateService> logger,
@@ -26,6 +25,7 @@ public class MineCraftUpdateService : IMineCraftUpdateService
         _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _serverPath = _options.ServerPath;
+        _minimumServerUptimeForUpdateSeconds = _options.MinimumServerUptimeForUpdateSeconds;
     }
 
     /// <summary>
@@ -34,35 +34,47 @@ public class MineCraftUpdateService : IMineCraftUpdateService
     /// </summary>
     public async Task<(bool, string, string)> NewVersionIsAvailable(string currentVersion, CancellationToken cancellationToken = default)
     {
-        // Check if 24 hours have passed since last update check
-        if (DateTime.Now - _lastUpdateCheckTime < _updateCheckInterval)
+        try
         {
-            _log.Debug($"Update check skipped (last check was {DateTime.Now - _lastUpdateCheckTime:hh\\:mm\\:ss} ago)");
-            return (false, "Update check skipped: checked recently.", "");
+            // Check server uptime - don't check for updates if server hasn't been up long enough
+            var serverUptime = _minecraftService.ServerStartTime == DateTime.MinValue 
+                ? TimeSpan.Zero 
+                : DateTime.Now - _minecraftService.ServerStartTime;
+            
+            _log.Debug($"NewVersionIsAvailable called. Current version: {currentVersion}, Server uptime: {serverUptime.TotalSeconds:F0}s");
+            
+            if (serverUptime.TotalSeconds < _minimumServerUptimeForUpdateSeconds)
+            {
+                _log.Debug($"Update check skipped. Server uptime is {serverUptime.TotalSeconds:F0} seconds. Have not yet reached minimum uptime of {_minimumServerUptimeForUpdateSeconds} seconds.");
+                return (false, $"Update check skipped: server uptime {serverUptime.TotalSeconds:F0}s < minimum {_minimumServerUptimeForUpdateSeconds}s", "");
+            }
+
+            _log.Info("Checking for Bedrock server updates...");
+
+            var latestVersion = await GetLatestVersionAsync(cancellationToken);
+            if (latestVersion == null)
+            {
+                _log.Warn("Failed to determine latest Bedrock server version");
+                return (false, "Failed to determine latest Bedrock server version", "");
+            }
+
+            _log.Info($"Current version: {currentVersion}, Latest version: {latestVersion}");
+
+            // Compare versions
+            if (latestVersion == currentVersion)
+            {
+                _log.Info("Bedrock server is up to date");
+                return (false, "Bedrock server is up to date", "");
+            }
+
+            _log.Info($"Update available: {currentVersion} → {latestVersion}");
+            return (true, $"Update available: {currentVersion} → {latestVersion}", latestVersion);
         }
-
-        _lastUpdateCheckTime = DateTime.Now;
-
-        _log.Info("Checking for Bedrock server updates...");
-
-        var latestVersion = await GetLatestVersionAsync(cancellationToken);
-        if (latestVersion == null)
+        catch (Exception ex)
         {
-            _log.Warn("Failed to determine latest Bedrock server version");
-            return (false, "Failed to determine latest Bedrock server version", "");
+            _log.Error(ex, "Exception in NewVersionIsAvailable");
+            return (false, $"Exception checking for updates: {ex.Message}", "");
         }
-
-        _log.Info($"Current version: {currentVersion}, Latest version: {latestVersion}");
-
-        // Compare versions
-        if (latestVersion == currentVersion)
-        {
-            _log.Info("Bedrock server is up to date");
-            return (false, "Bedrock server is up to date", "");
-        }
-
-        _log.Info($"Update available: {currentVersion} → {latestVersion}");
-        return (true, $"Update available: {currentVersion} → {latestVersion}", latestVersion);
     }
 
     /// <summary>
@@ -70,18 +82,38 @@ public class MineCraftUpdateService : IMineCraftUpdateService
     /// </summary>
     private async Task<string> GetLatestVersionAsync(CancellationToken cancellationToken)
     {
-        using var httpClient = new HttpClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(30);
+        try
+        {
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
 
-        _log.Debug("Fetching latest version from Microsoft API...");
-        var response = await httpClient.GetAsync(
-            _options.MineCraftVersionApiUrl,
-            cancellationToken);
+            _log.Debug("Fetching latest version from Microsoft API...");
+            _log.Debug($"API URL: {_options.MineCraftVersionApiUrl}");
+            
+            var response = await httpClient.GetAsync(
+                _options.MineCraftVersionApiUrl,
+                cancellationToken);
+            
+            _log.Debug($"HTTP Response Status: {response.StatusCode}");
+            
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            _log.Debug($"Response content length: {content.Length} bytes");
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _log.Error($"API returned non-success status: {response.StatusCode}. Content: {content}");
+                return null;
+            }
+            
             var version = ExtractVersionFromMicrosoftApi(content);
             _log.Info("Latest version from Microsoft API: " + version);
             return version;
-
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Exception in GetLatestVersionAsync");
+            return null;
+        }
     }
 
     /// <summary>
