@@ -13,7 +13,6 @@ public class MineCraftUpdateService : IMineCraftUpdateService
     private IMineCraftVersionService _mineCraftVersionService;
     private readonly ILog<MineCraftUpdateService> _log;
     private readonly IMineCraftServerService _minecraftService;
-    private readonly string _serverPath;
     private MineCraftServerOptions _options;
     private readonly int _minimumServerUptimeForUpdateSeconds;
 
@@ -27,7 +26,6 @@ public class MineCraftUpdateService : IMineCraftUpdateService
         _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _mineCraftVersionService = versionService ?? throw new ArgumentNullException(nameof(versionService));
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _serverPath = _options.ServerPath;
         _minimumServerUptimeForUpdateSeconds = _options.MinimumServerUptimeForUpdateSeconds;
     }
 
@@ -79,12 +77,6 @@ public class MineCraftUpdateService : IMineCraftUpdateService
             return (false, $"Exception checking for updates: {ex.Message}", "");
         }
     }
-
-    
-
-    
-
-    
 
     /// <summary>
     /// Copies a directory recursively, excluding certain folders.

@@ -30,12 +30,12 @@ public class ServerAutoStartServiceTests
     }
 
     /// <summary>
-    /// Test: ApplyAutoStartAsync starts the server when auto-start is enabled.
-    /// Intent: Verify that enabling auto-start triggers server startup when the service is invoked.
-    /// Importance: Core auto-start functionality - ensures servers start automatically when configured.
+    /// Test: Server starts when auto-start is enabled.
+    /// Intent: Verify auto-start feature activates the server.
+    /// Importance: Core feature - enables hands-off server operation.
     /// </summary>
     [Test]
-    public async Task ApplyAutoStartAsync_AutoStartEnabled_StartsServer()
+    public async Task Test_That_ServerStarts_When_AutoStart_Enabled()
     {
         _options.EnableAutoStart = true;
         _options.AutoStartDelaySeconds = 0;
@@ -48,12 +48,12 @@ public class ServerAutoStartServiceTests
     }
 
     /// <summary>
-    /// Test: ApplyAutoStartAsync does not start the server when auto-start is disabled.
-    /// Intent: Verify that disabling auto-start prevents automatic startup even when the service is invoked.
-    /// Importance: Respects user configuration - allows manual server management when auto-start is disabled.
+    /// Test: Server does not start when auto-start is disabled.
+    /// Intent: Verify disabled auto-start is respected.
+    /// Importance: Configuration respect - honors user's choice.
     /// </summary>
     [Test]
-    public async Task ApplyAutoStartAsync_AutoStartDisabled_DoesNotStartServer()
+    public async Task Test_That_ServerNotStarted_When_AutoStart_Disabled()
     {
         _options.EnableAutoStart = false;
         var service = new ServerAutoStartService(_log, _minecraftService, _options);
@@ -64,12 +64,12 @@ public class ServerAutoStartServiceTests
     }
 
     /// <summary>
-    /// Test: ApplyAutoStartAsync respects the configured delay before starting the server.
-    /// Intent: Verify that the service waits for the configured duration before triggering startup.
-    /// Importance: Allows delaying auto-start for controlled server restart sequences (e.g., after updates).
+    /// Test: Configured delay is waited before starting server.
+    /// Intent: Verify startup delay is applied as configured.
+    /// Importance: Reliability - allows system time to stabilize before server starts.
     /// </summary>
     [Test]
-    public async Task ApplyAutoStartAsync_AutoStartEnabled_WaitsForDelay()
+    public async Task Test_That_Delay_Applied_Before_ServerStart()
     {
         _options.EnableAutoStart = true;
         _options.AutoStartDelaySeconds = 1;
@@ -86,12 +86,12 @@ public class ServerAutoStartServiceTests
     }
 
     /// <summary>
-    /// Test: ApplyAutoStartAsync handles gracefully when server startup fails.
-    /// Intent: Verify that startup failures don't cause exceptions and are logged appropriately.
-    /// Importance: Robustness - ensures the service continues operation even if startup fails.
+    /// Test: Error is logged when server start fails.
+    /// Intent: Verify error handling captures and reports failures.
+    /// Importance: Observability - ensures failures are visible for debugging.
     /// </summary>
     [Test]
-    public async Task ApplyAutoStartAsync_StartServerFails_LogsError()
+    public async Task Test_That_Error_Logged_When_ServerStart_Fails()
     {
         _options.EnableAutoStart = true;
         _options.AutoStartDelaySeconds = 0;

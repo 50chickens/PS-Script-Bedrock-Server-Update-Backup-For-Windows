@@ -31,7 +31,7 @@ public class PreFlightCheckServiceTests
     /// Importance: Ensures startup validation runs successfully - prevents initialization failures from breaking the service.
     /// </summary>
     [Test]
-    public async Task CheckAndCleanupAsync_CompletesSuccessfully()
+    public async Task Test_That_PreflightCheck_Completes_Successfully()
     {
         Assert.DoesNotThrowAsync(async () => await _service.CheckAndCleanupAsync());
     }

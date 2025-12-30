@@ -13,28 +13,26 @@ public partial class ServerStatusService : IServerStatusService
     private readonly ILog<ServerStatusService> _log;
     private readonly IMineCraftServerService _minecraftService;
     private readonly IMineCraftUpdateService _updateCheckService;
+    private readonly IMineCraftSchedulerService _mineCraftSchedulerService;
     private readonly IServerStatusProvider _statusProvider;
     private readonly int _autoShutdownAfterSeconds;
     private readonly bool _enableAutoStart;
-    private readonly int _minimumServerUptimeForUpdateSeconds;
-    private DateTime _serviceStartedAt;
     private bool _checkForUpdates;
     private string? _pendingPatchVersion = null;  // Version pending to be patched
-    private DateTime _updateCheckTime = DateTime.MinValue;
     private List<int> _updateCheckIntervalsSeconds = new List<int>();
-    
-    private DateTime _autoShutdownTime = DateTime.MinValue;
     
     public ServerStatusService(
         ILog<ServerStatusService> log,
         IMineCraftServerService minecraftService,
         MineCraftServerOptions options,
         IMineCraftUpdateService updateCheckService,
+        IMineCraftSchedulerService mineCraftSchedulerService,
         IServerStatusProvider statusProvider)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _updateCheckService = updateCheckService ?? throw new ArgumentNullException(nameof(updateCheckService));
+        _mineCraftSchedulerService = mineCraftSchedulerService;
         _statusProvider = statusProvider ?? throw new ArgumentNullException(nameof(statusProvider));
         AddAutoShutdownIntervals(options);
         AddUpdateCheckIntervals(options);
@@ -65,8 +63,8 @@ public partial class ServerStatusService : IServerStatusService
                 var patchVersion = _pendingPatchVersion;
                 _pendingPatchVersion = null;  // Clear pending patch
                 _log.Debug($"Determined lifecycle status: ShouldBePatched (version {patchVersion})");
-                _autoShutdownTime = DateTime.MinValue; // Clear auto-shutdown time until server restarts
-                _updateCheckTime = DateTime.MinValue; // Clear update check time until server restarts
+                _mineCraftSchedulerService.SetAutoShutdownTime(DateTime.MinValue); // Clear auto-shutdown time until server restarts
+                _mineCraftSchedulerService.SetUpdateCheckTime(DateTime.MinValue); // Clear update check time until server restarts
                 return new MineCraftServerLifecycleStatus
                 {
                     LifecycleStatus = MineCraftServerStatus.ShouldBePatched,
@@ -82,19 +80,22 @@ public partial class ServerStatusService : IServerStatusService
 
             if (ShouldBeIdle())
             {
-                _log.Debug("Determined lifecycle status: ShouldBeIdle");                
+                _log.Debug("Determined lifecycle status: ShouldBeIdle");
+                // Clear scheduled times when server becomes idle (stopped and not restarting)
+                _mineCraftSchedulerService.SetAutoShutdownTime(DateTime.MinValue);
+                _mineCraftSchedulerService.SetUpdateCheckTime(DateTime.MinValue);
                 return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeIdle };
             }
 
             if (ShouldBeMonitored())
             {
                 _log.Debug("Determined lifecycle status: ShouldBeMonitored");
-                if (_autoShutdownTime == DateTime.MinValue)
+                if (_mineCraftSchedulerService.GetAutoShutdownTime() == DateTime.MinValue)
                 {
                     // If auto-shutdown time was never set (e.g. server started before service), set it now
                     SetAutoShutdownSchedule();
                 }
-                if (_updateCheckTime == DateTime.MinValue)
+                if (_mineCraftSchedulerService.GetUpdateCheckTime() == DateTime.MinValue)
                 {
                     // If update check time was never set (e.g. server started before service), set it now
                     SetUpdateSchedule();
@@ -173,7 +174,7 @@ public partial class ServerStatusService : IServerStatusService
         {
             return (false, "");
         }
-        if (_autoShutdownAfterSeconds > 0 && _autoShutdownTime != DateTime.MinValue && DateTime.Now >= _autoShutdownTime)
+        if (_autoShutdownAfterSeconds > 0 && _mineCraftSchedulerService.IsAutoShutdownTimeSet() && _mineCraftSchedulerService.GetCurrentTime() >= _mineCraftSchedulerService.GetAutoShutdownTime())
         {
             _log.Debug($"Scheduled auto-shutdown time reached.");
             _statusProvider.SetShutdownMode(ServerShutDownMode.DenyRestart);
@@ -184,17 +185,21 @@ public partial class ServerStatusService : IServerStatusService
         {
             return (false, "Update checks disabled.");
         }
-        if (_updateCheckTime == DateTime.MinValue)
+        if (!_mineCraftSchedulerService.IsUpdateCheckTimeSet())
         {
             return (false, "No valid update check time yet.");
         }
-        if (DateTime.Now <  _updateCheckTime)
+        var updateCheckTime = _mineCraftSchedulerService.GetUpdateCheckTime();
+        if (_mineCraftSchedulerService.GetCurrentTime() < updateCheckTime)
         {
-            return (false, $"Update check not due until {_updateCheckTime:yyyy-MM-dd HH:mm:ss.fff}.");
+            return (false, $"Update check not due until {updateCheckTime:yyyy-MM-dd HH:mm:ss.fff}.");
         }
         try
         {    
-            _log.Debug($"Scheduled update check time reached. Checking for updates... (Now: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff})");
+            var now = _mineCraftSchedulerService.GetCurrentTime();
+            _log.Debug($"Scheduled update check time reached. Checking for updates... (Now: {now:yyyy-MM-dd HH:mm:ss.fff})");
+            _mineCraftSchedulerService.SetUpdateCheckTime(now.AddSeconds(_updateCheckIntervalsSeconds.FirstOrDefault())); //reset the next update check time so that even if an exception occurs.
+            _log.Debug($"Rescheduled next update check for {_mineCraftSchedulerService.GetUpdateCheckTime():yyyy-MM-dd HH:mm:ss.fff}");
             var (updateAvailable, message, newVersion) = await _updateCheckService.NewVersionIsAvailable(_minecraftService.CurrentVersion);
             _log.Debug($"Update check complete. Available: {updateAvailable}, Message: {message}, NewVersion: {newVersion}");
 
@@ -217,29 +222,37 @@ public partial class ServerStatusService : IServerStatusService
     }
     private void LogScheduledOperationStatus()
     {
-        var now = DateTime.Now;
+        var now = _mineCraftSchedulerService.GetCurrentTime();
         
         // Log time until next auto-shutdown
         if (_autoShutdownAfterSeconds > 0)
         {
-            var remainingSeconds = (int)(_autoShutdownTime - now).TotalSeconds;
-            if (remainingSeconds > 0)
+            if (_mineCraftSchedulerService.IsAutoShutdownTimeSet())
             {
-                _log.Info($"Auto-shutdown in {remainingSeconds} seconds.");
+                var autoShutdownTime = _mineCraftSchedulerService.GetAutoShutdownTime();
+                var remainingSeconds = (int)(autoShutdownTime - now).TotalSeconds;
+                if (remainingSeconds > 0)
+                {
+                    _log.Info($"Auto-shutdown in {remainingSeconds} seconds.");
+                }
             }
         }
 
         // Log time until next update check
         if (_checkForUpdates)
         {
-            var remainingSeconds = (int)(_updateCheckTime - now).TotalSeconds;
-            if (remainingSeconds > 0)
+            if (_mineCraftSchedulerService.IsUpdateCheckTimeSet())
             {
-                _log.Info($"Next update check in {remainingSeconds} seconds.");
-            }
-            else
-            {
-                _log.Debug($"Update check is due now.");
+                var updateCheckTime = _mineCraftSchedulerService.GetUpdateCheckTime();
+                var remainingSeconds = (int)(updateCheckTime - now).TotalSeconds;
+                if (remainingSeconds > 0)
+                {
+                    _log.Info($"Next update check in {remainingSeconds} seconds.");
+                }
+                else
+                {
+                    _log.Debug($"Update check is due now.");
+                }
             }
         }
     }
@@ -266,12 +279,14 @@ public partial class ServerStatusService : IServerStatusService
     }
     private void SetUpdateSchedule()
     {
-        _serviceStartedAt = DateTime.Now;
-        _log.Debug($"Service started at {_serviceStartedAt:yyyy-MM-dd HH:mm:ss.fff}. Minimum uptime for first update check is {_minimumServerUptimeForUpdateSeconds} seconds.");
+        var serviceStartedAt = _mineCraftSchedulerService.GetCurrentTime();
+        _mineCraftSchedulerService.SetServiceStartedAt(serviceStartedAt);
+        _log.Debug($"Service started at {serviceStartedAt:yyyy-MM-dd HH:mm:ss.fff}.");
         
         var updateCheckIntervalSeconds = _updateCheckIntervalsSeconds.FirstOrDefault();
-        _updateCheckTime = _serviceStartedAt.AddSeconds(updateCheckIntervalSeconds);
-        _log.Debug($"Scheduling next update check for {_updateCheckTime:yyyy-MM-dd HH:mm:ss.fff}.");
+        var updateCheckTime = serviceStartedAt.AddSeconds(updateCheckIntervalSeconds);
+        _mineCraftSchedulerService.SetUpdateCheckTime(updateCheckTime);
+        _log.Debug($"Scheduling next update check for {updateCheckTime:yyyy-MM-dd HH:mm:ss.fff}.");
         if (_updateCheckIntervalsSeconds.Count > 1) //keep the last item in the list. it will be used for subsequent checks.
         {
             _updateCheckIntervalsSeconds.Remove(updateCheckIntervalSeconds);
@@ -280,9 +295,11 @@ public partial class ServerStatusService : IServerStatusService
     }
     private void SetAutoShutdownSchedule()
     {   
-        _serviceStartedAt = DateTime.Now;
-        _autoShutdownTime = DateTime.Now.AddSeconds(_autoShutdownAfterSeconds);
-        _log.Debug($"Auto-shutdown timer reset due to server restarting post patching. Next auto-shutdown scheduled for {_autoShutdownTime:yyyy-MM-dd HH:mm:ss.fff}");        
+        var now = _mineCraftSchedulerService.GetCurrentTime();
+        _mineCraftSchedulerService.SetServiceStartedAt(now);
+        var autoShutdownTime = now.AddSeconds(_autoShutdownAfterSeconds);
+        _mineCraftSchedulerService.SetAutoShutdownTime(autoShutdownTime);
+        _log.Debug($"Auto-shutdown timer reset due to server restarting post patching. Next auto-shutdown scheduled for {autoShutdownTime:yyyy-MM-dd HH:mm:ss.fff}");        
     }
     
 }

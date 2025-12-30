@@ -29,12 +29,12 @@ public class ServerStatusProviderTests
     }
 
     /// <summary>
-    /// Test: GetStatusAsync in default mode delegates to and returns the underlying status service result.
-    /// Intent: Verify that the provider correctly forwards calls to the status service in normal operation.
-    /// Importance: Core delegation pattern - ensures status queries are properly routed to the service layer.
+    /// Test: Status service is called when provider is in default mode.
+    /// Intent: Verify normal operation delegates to status service.
+    /// Importance: Delegation - ensures primary logic is executed.
     /// </summary>
     [Test]
-    public async Task GetStatusAsync_DefaultMode_CallsStatusService()
+    public async Task Test_That_StatusService_Called_In_DefaultMode()
     {
         _statusService.GetLifeCycleStateAsync().Returns(Task.FromResult(new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeMonitored }));
 
@@ -45,12 +45,12 @@ public class ServerStatusProviderTests
     }
 
     /// <summary>
-    /// Test: Repeated GetStatusAsync calls in default mode each delegate to status service independently.
-    /// Intent: Verify that the provider doesn't cache results and freshly queries the service on each call.
-    /// Importance: Ensures real-time status updates - changes in server state are detected on every query.
+    /// Test: Status service is called on each request in default mode (not cached).
+    /// Intent: Verify fresh status is retrieved each time.
+    /// Importance: Correctness - ensures status is current, not stale.
     /// </summary>
     [Test]
-    public async Task GetStatusAsync_DefaultMode_RepeatedCalls_CallsServiceEachTime()
+    public async Task Test_That_StatusService_CalledEachTime_NoCache_DefaultMode()
     {
         _statusService.GetLifeCycleStateAsync()
             .Returns(
@@ -76,7 +76,7 @@ public class ServerStatusProviderTests
     /// </summary>
     [Test]
     [TestCase(ServerShutDownMode.WindowsServiceShutdown)]
-    public async Task SetShutdownMode_ReturnsShutdownSequence(ServerShutDownMode shutDownMode)
+    public async Task Test_That_ShutdownSequence_Returned_In_ShutdownMode(ServerShutDownMode shutDownMode)
     {
         _provider.SetShutdownMode(shutDownMode);
 
@@ -97,13 +97,13 @@ public class ServerStatusProviderTests
     }
 
     /// <summary>
-    /// Test: In shutdown mode, the status service is not called - shutdown sequence is used exclusively.
+    /// Test: In shutdown mode, status service is not called - shutdown sequence is used exclusively.
     /// Intent: Verify that shutdown mode completely bypasses the status service during shutdown.
     /// Importance: Prevents interference from status checks during shutdown and ensures deterministic shutdown sequence.
     /// </summary>
     [Test]
     [TestCase(ServerShutDownMode.DenyRestart)]
-    public async Task SetShutdownModeAutoShutdownExceeded_AlwaysReturnsShouldBeStopped(ServerShutDownMode mode)
+    public async Task Test_That_StatusService_Bypassed_In_ShutdownMode(ServerShutDownMode mode)
     {
         _provider.SetShutdownMode(mode);
 
@@ -114,12 +114,12 @@ public class ServerStatusProviderTests
     }
 
     /// <summary>
-    /// Test: SetShutdownMode correctly transitions from default mode to shutdown sequence mode.
+    /// Test: Provider correctly transitions from default mode to shutdown sequence mode.
     /// Intent: Verify that the provider can switch from normal operation to shutdown mode and use the shutdown sequence thereafter.
     /// Importance: Ensures mode switching works correctly - normal operation seamlessly transitions to shutdown handling.
     /// </summary>
     [Test]
-    public async Task SetShutdownMode_AfterDefaultMode_SwitchesCorrectly()
+    public async Task Test_That_ModeSwitch_Works_From_DefaultToShutdown()
     {
         // Start in default mode
         _statusService.GetLifeCycleStateAsync().Returns(Task.FromResult(new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeMonitored }));
@@ -139,11 +139,15 @@ public class ServerStatusProviderTests
         // Status service should only be called once (from the first GetStatusAsync)
         await _statusService.Received(1).GetLifeCycleStateAsync();
     }
-    //once auto-shutdown time exceeded, we always return ShouldBeStopped to prevent restart.
+
+    /// <summary>
+    /// Test: Once auto-shutdown time exceeded, ShouldBeStopped always returns to prevent restart.
+    /// Intent: Verify that auto-shutdown cannot be escaped once triggered.
+    /// Importance: Safety - ensures auto-shutdown always blocks restart.
+    /// </summary>
     [Test]
     public async Task Test_That_Once_AutoShutDownTimeExceeded_AlwaysReturnsShouldBeStopped()
     {
-        
         _provider.SetShutdownMode(ServerShutDownMode.DenyRestart);
 
         // First call returns ShouldBeStopped
@@ -163,12 +167,12 @@ public class ServerStatusProviderTests
     }
 
     /// <summary>
-    /// Test: ServerStatusProvider throws ArgumentNullException when constructed with null status functions.
-    /// Intent: Verify that the provider validates required dependencies and fails fast with missing configuration.
-    /// Importance: Prevents silent failures - ensures constructor validates critical dependencies.
+    /// Test: ServerStatusProvider validates required dependencies and throws when constructed with null.
+    /// Intent: Verify that the provider fails fast with missing configuration.
+    /// Importance: Prevents silent failures - catches configuration errors immediately.
     /// </summary>
     [Test]
-    public void ServerStatusProvider_ThrowsIfStatusHandlerIsNull()
+    public void Test_That_Exception_Thrown_When_Constructed_WithNull()
     {
         Assert.Throws<ArgumentNullException>(() => new ServerStatusProvider(null!));
     }

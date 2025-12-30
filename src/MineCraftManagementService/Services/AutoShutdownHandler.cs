@@ -14,12 +14,4 @@ public class AutoShutdownTimeExceededStatusHandler
             new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStopped }
         );
     }
-
-    /// <summary>
-    /// Reset method for compatibility. Has no effect since handler always returns ShouldBeStopped.
-    /// </summary>
-    public void Reset()
-    {
-        // No state to reset - always returns ShouldBeStopped
-    }
 }
