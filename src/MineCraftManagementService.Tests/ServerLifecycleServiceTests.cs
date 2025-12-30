@@ -124,6 +124,7 @@ public class ServerLifecycleServiceTests
     [Test]
     public async Task Test_That_Server_IsStopped_When_StatusIndicates_ShouldBeStopped()
     {
+        _minecraftService.IsRunning.Returns(true);
         _minecraftService.TryGracefulShutdownAsync().Returns(Task.FromResult(true));
         var statusSequence = new[] {
             new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStopped },

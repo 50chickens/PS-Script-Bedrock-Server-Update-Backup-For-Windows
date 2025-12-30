@@ -98,21 +98,18 @@ public class MineCraftServerService : IMineCraftServerService
         _isRunning = true;
         _log.Info($"Minecraft server started successfully with PID: {_serverProcess.Id}");
 
-        // Monitor output
         _ = MonitorProcessOutputAsync();
 
-        // Give server time to initialize and emit version info
         await Task.Delay(3000);
 
         return IsRunning;
     }
     private bool CheckForProcessByName()
     {
-        //look for process by name using options.ServerExecutableName
         var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(_options.ServerExecutableName));
         if (processes.Length > 0)
         {
-            var process = processes.Where(p => !p.HasExited).FirstOrDefault(); //it's possible that multiple processes exist with the same name. todo: fix that.
+            var process = processes.Where(p => !p.HasExited).FirstOrDefault();
             if (process != null)
             {
                 _log.Info($"Found process with name {_options.ServerExecutableName} and PID: {process.Id}");
@@ -160,14 +157,12 @@ public class MineCraftServerService : IMineCraftServerService
     public async Task<bool> TryGracefulShutdownAsync()
     {
         // If we have the original process reference and it's still running, use it directly
-        // (it has redirected stdin from when we started it)
         if (_serverProcess != null && !_serverProcess.HasExited)
         {
             _log.Info("Using stored process reference for graceful shutdown");
         }
         else
         {
-            // Otherwise, try to find the process by ID or name
             _log.Info("Stored process reference invalid, attempting to locate process...");
             
             bool foundProcessByProcessId = CheckForProcessbyProcessId();
@@ -192,7 +187,6 @@ public class MineCraftServerService : IMineCraftServerService
 
         _log.Info("Attempting graceful shutdown by sending 'stop' command to server stdin");
 
-        // Write "stop" command to the server's standard input with proper line termination
         if (_serverProcess?.StandardInput != null)
         {
             _serverProcess.StandardInput.Write($"{_options.GracefulShutdownCommand}\r\n");
@@ -205,7 +199,6 @@ public class MineCraftServerService : IMineCraftServerService
             return false;
         }
 
-        // Wait for the process to terminate (up to configured timeout)
         int maxWaitMs = _options.GracefulShutdownMaxWaitSeconds * 1000;
         int checkIntervalMs = _options.GracefulShutdownCheckIntervalMs;
         int elapsedMs = 0;
@@ -252,15 +245,13 @@ public class MineCraftServerService : IMineCraftServerService
         if (!_serverProcess.HasExited)
         {
             _log.Info("Force killing Bedrock server process");
-            _serverProcess.Kill(true); // Kill the process and all child processes
+            _serverProcess.Kill(true);
             
-            // Wait for process to exit using configured stop timeout
             int stopTimeoutMs = _options.StopTimeoutSeconds * 1000;
             var killTask = Task.Run(() => _serverProcess.WaitForExit(stopTimeoutMs));
             await Task.WhenAny(killTask, Task.Delay(stopTimeoutMs));
         }
 
-        // Verify process is actually gone
         if (!ProcessExists(processId))
         {
             _isRunning = false;
@@ -314,7 +305,6 @@ public class MineCraftServerService : IMineCraftServerService
             {
                 _log.Info($"{line}");
                 
-                // Extract version from server output
                 if (line.Contains("Version:"))
                 {
                     ExtractVersionFromOutput(line);
@@ -343,12 +333,10 @@ public class MineCraftServerService : IMineCraftServerService
     {
         try
         {
-            // Look for pattern like "Version: 1.21.120.4"
             var versionIndex = outputLine.IndexOf("Version:");
             if (versionIndex >= 0)
             {
                 var versionPart = outputLine.Substring(versionIndex + "Version:".Length).Trim();
-                // Take the first token (version number) before any space or bracket
                 var version = versionPart.Split(new[] { ' ', '[', ']' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
                 if (!string.IsNullOrEmpty(version))
                 {

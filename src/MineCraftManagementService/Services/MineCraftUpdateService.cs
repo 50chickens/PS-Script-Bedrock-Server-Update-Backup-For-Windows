@@ -59,7 +59,7 @@ public class MineCraftUpdateService : IMineCraftUpdateService
                 return (false, "Failed to determine latest Bedrock server version", "");
             }
 
-            _log.Info($"Current version: {currentVersion}, Latest version: {minecraftServerVersion}");
+            _log.Info($"Current version: {currentVersion}, Latest version: {minecraftServerVersion.Version}");
 
             // Compare versions
             if (minecraftServerVersion.Version == currentVersion)

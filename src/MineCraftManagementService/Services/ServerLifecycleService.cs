@@ -46,14 +46,12 @@ public class ServerLifecycleService : IServerLifecycleService
     /// </summary>
     public async Task ManageServerLifecycleAsync(CancellationToken cancellationToken = default)
     {
-        // Run preflight checks to clean up any existing bedrock_server processes
         await _preFlightCheckService.CheckAndCleanupAsync();
 
-        // Apply auto-start configuration
         await _autoStartService.ApplyAutoStartAsync(cancellationToken);
 
-        // Monitor loop
         await ManageLifecycleAsync(cancellationToken);
+        _log.Info("Server lifecycle management finished. Server will not restart unless Management service is restarted.");
     }
 
     internal async Task ManageLifecycleAsync(CancellationToken cancellationToken)
@@ -72,19 +70,15 @@ public class ServerLifecycleService : IServerLifecycleService
                 {
                     case MineCraftServerStatus.ShouldBeStarted:
                         await HandleStartServerAsync();
-                        // Recheck status immediately to handle any state changes
                         continue;
 
                     case MineCraftServerStatus.ShouldBeStopped:
                         await HandleStopServerAsync();
                         
-                        // Recheck status to determine if stopping for patch or auto-shutdown
-                        // ServerStatusService will return ShouldBePatched if update available, ShouldBeIdle if auto-start disabled
                         continue;
                         
                     case MineCraftServerStatus.ShouldBePatched:
                         await HandlePatchServerAsync(lifecycleState.PatchVersion ?? "", cancellationToken);
-                        // Recheck status after patch to see if server should be started or if another patch is needed
                         continue;
 
                     case MineCraftServerStatus.ShouldBeMonitored:
@@ -146,8 +140,6 @@ public class ServerLifecycleService : IServerLifecycleService
             await _minecraftService.ForceStopServerAsync();
         }
         _log.Info("Server stopped successfully.");   
-        // Allow ports to be released before attempting to start server again
-        // This prevents "port already in use" errors on quick restart cycles
         _log.Debug("Waiting for ports to be released after server shutdown...");
         await Task.Delay(2000);
     }
@@ -161,10 +153,7 @@ public class ServerLifecycleService : IServerLifecycleService
 
         _log.Info($"Applying server update patch to version {patchVersion}...");
         
-        // Server should already be stopped at this point, no need to shutdown again
-        // ShouldBePatched already confirmed an update is available, so no need to check again
-        
-        // Create backup after successful server stop
+        // Create backup before applying patch
         var backupPath = _backupService.CreateBackupZipFromServerFolder();
         _log.Info($"Backed up current installation to {backupPath}");
         
@@ -175,17 +164,13 @@ public class ServerLifecycleService : IServerLifecycleService
 
     private async Task HandleServerMonitoringAsync(CancellationToken cancellationToken)
     {
-        // When server is running and up to date, we just monitor it.
-        // The MonitorProcessOutputAsync in MineCraftServerService handles logging server output
-        // in a separate background task.
-        // This state simply indicates the server is healthy and requires monitoring.
+        // Server is running and up-to-date - monitor output in background task
         await Task.CompletedTask;
     }
 
     private async Task HandleIdleStateAsync()
     {
-        // Server is idle: either EnableAutoStart is disabled or auto-shutdown has exceeded.
-        // In this state, we do nothing and wait for EnableAutoStart to be re-enabled or manual intervention.
+        // Server idle - EnableAutoStart disabled or auto-shutdown exceeded
         _log.Trace("Server is idle (auto-start disabled or awaiting manual intervention)");
         await Task.CompletedTask;
     }
@@ -212,7 +197,6 @@ public class ServerLifecycleService : IServerLifecycleService
             elapsedMs += checkIntervalMs;
         }
         
-        // If server still running after timeout, force stop
         if (_minecraftService.IsRunning)
         {
             _log.Warn("Server did not stop within timeout, forcing stop");

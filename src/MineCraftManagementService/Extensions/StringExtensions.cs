@@ -32,8 +32,6 @@ public static class StringExtensions
     /// <returns>True if parsing succeeded, false otherwise</returns>
     public static bool TryGetMineCraftServer(this string jsonContent, out MineCraftServerDownload mineCraftServer)
     {
-        //parse version from json
-        //use newtonsoft json
         JObject jObject = JObject.Parse(jsonContent);
         var jTokens = jObject["result"]?["links"];
         if (jTokens != null)

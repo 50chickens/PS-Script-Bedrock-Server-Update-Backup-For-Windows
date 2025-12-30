@@ -8,7 +8,7 @@ namespace MineCraftManagementService.Logging;
 public static class NLogExtensions
 {
     /// <summary>
-    /// Configure Common.Logging to use the NLog factory adapter from AlsaSharp.Core
+    /// Configure Common.Logging to use the NLog factory adapter
     /// so calls to Common.Logging.LogManager.GetLogger(...) are backed by NLog.
     /// </summary>
     public static ILoggingBuilder AddNlogFactoryAdaptor(this ILoggingBuilder builder)
@@ -19,22 +19,48 @@ public static class NLogExtensions
     }
 
     /// <summary>
-    /// Apply a minimal programmatic NLog configuration (console target + Info+ rules).
+    /// Apply NLog configuration with console and/or file targets based on LoggingSettings.
     /// This moves programmatic logging setup out of `Program.cs` so it can be reused/tested.
     /// </summary>
-    public static ILoggingBuilder AddNLogConfiguration(this ILoggingBuilder builder)
+    public static ILoggingBuilder AddNLogConfiguration(this ILoggingBuilder builder, LoggingSettings? settings = null)
     {
+        settings ??= new LoggingSettings();
+        
         var nlogConfig = new LoggingConfiguration();
-        var consoleTarget = new ColoredConsoleTarget("console")
+        var layout = "${longdate}|${level:uppercase=true}|${logger:shortName=true}|${message}${onexception:${newline}${exception:format=tostring}}";
+        var logLevel = settings.GetLogLevel();
+        
+        if (settings.EnableConsoleLogging)
         {
-            // show only the class name (short logger name) instead of full namespace
-            Layout = "${longdate}|${level:uppercase=true}|${logger:shortName=true}|${message}${onexception:${newline}${exception:format=tostring}}"
-        };
-        nlogConfig.AddTarget(consoleTarget);
-        // Set default rule to Information level, respecting appsettings.json configuration
-        nlogConfig.AddRule(NLog.LogLevel.Info, NLog.LogLevel.Fatal, consoleTarget);
+            var consoleTarget = new ColoredConsoleTarget("console")
+            {
+                Layout = layout
+            };
+            nlogConfig.AddTarget(consoleTarget);
+            nlogConfig.AddRule(logLevel, NLog.LogLevel.Fatal, consoleTarget);
+        }
+        
+        if (settings.EnableFileLogging)
+        {
+            var logFilePath = settings.GetLogFilePath();
+            var archiveFolderPath = settings.GetArchiveFolderPath();
+            var archiveFileName = Path.Combine(archiveFolderPath, Path.GetFileNameWithoutExtension(settings.LogFileName) + "-{#}.log");
+            
+            var fileTarget = new FileTarget("file")
+            {
+                FileName = logFilePath,
+                Layout = layout,
+                ArchiveFileName = archiveFileName,
+                ArchiveSuffixFormat = "0",
+                MaxArchiveFiles = settings.MaxArchiveFiles,
+                ArchiveAboveSize = settings.MaxLogFileSizeMB * 1024 * 1024,
+                CreateDirs = true
+            };
+            nlogConfig.AddTarget(fileTarget);
+            nlogConfig.AddRule(logLevel, NLog.LogLevel.Fatal, fileTarget);
+        }
+        
         NLog.LogManager.Configuration = nlogConfig;
-
         return builder;
     }
     public static NLog.LogLevel ToNlogLogLevel(this Common.Logging.LogLevel level)

@@ -39,8 +39,18 @@ namespace MineCraftManagementService
         /// <param name="builder">The HostApplicationBuilder to configure</param>
         public static void ConfigureServices(HostApplicationBuilder builder)
         {
-            // Configure NLog logging
-            builder.Logging.AddNLogConfiguration();
+            // Load logging settings from configuration
+            var loggingSettings = builder.Configuration.GetSection("Logging:MineCraft").Get<LoggingSettings>() ?? new LoggingSettings();
+            
+            // Get the log level for MineCraft from the standard Logging:LogLevel configuration
+            var logLevelConfig = builder.Configuration.GetSection("Logging:LogLevel").Get<Dictionary<string, string>>();
+            if (logLevelConfig != null && logLevelConfig.TryGetValue("MineCraftManagementService", out var logLevel))
+            {
+                loggingSettings.MinimumLogLevel = logLevel;
+            }
+            
+            // Configure NLog logging with settings
+            builder.Logging.AddNLogConfiguration(loggingSettings);
             builder.Logging.AddNlogFactoryAdaptor();
 
             // Configure the app to work as a Windows Service

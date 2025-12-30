@@ -181,7 +181,7 @@ public partial class ServerStatusService : IServerStatusService
         }
         if (_autoShutdownAfterSeconds > 0 && _mineCraftSchedulerService.IsAutoShutdownTimeSet() && _mineCraftSchedulerService.GetCurrentTime() >= _mineCraftSchedulerService.GetAutoShutdownTime())
         {
-            _log.Debug($"Scheduled auto-shutdown time reached.");
+            _log.Info($"Scheduled auto-shutdown time reached.");
             _statusProvider.SetShutdownMode(ServerShutDownMode.DenyRestart);
             return (true, "Auto-shutdown time exceed.");
         }
@@ -202,7 +202,7 @@ public partial class ServerStatusService : IServerStatusService
         try
         {    
             var now = _mineCraftSchedulerService.GetCurrentTime();
-            _log.Debug($"Scheduled update check time reached. Checking for updates... (Now: {now:yyyy-MM-dd HH:mm:ss.fff})");
+            _log.Info($"Scheduled update check time reached. Checking for updates... (Now: {now:yyyy-MM-dd HH:mm:ss.fff})");
             _mineCraftSchedulerService.SetUpdateCheckTime(now.AddSeconds(_updateCheckIntervalsSeconds.FirstOrDefault())); //reset the next update check time so that even if an exception occurs.
             _log.Debug($"Rescheduled next update check for {_mineCraftSchedulerService.GetUpdateCheckTime():yyyy-MM-dd HH:mm:ss.fff}");
             var (updateAvailable, message, newVersion) = await _updateCheckService.NewVersionIsAvailable(_minecraftService.CurrentVersion);
@@ -238,7 +238,7 @@ public partial class ServerStatusService : IServerStatusService
                 var remainingSeconds = (int)(autoShutdownTime - now).TotalSeconds;
                 if (remainingSeconds > 0)
                 {
-                    _log.Info($"Auto-shutdown in {remainingSeconds} seconds.");
+                    _log.Debug($"Auto-shutdown in {remainingSeconds} seconds.");
                 }
             }
         }
@@ -252,11 +252,11 @@ public partial class ServerStatusService : IServerStatusService
                 var remainingSeconds = (int)(updateCheckTime - now).TotalSeconds;
                 if (remainingSeconds > 0)
                 {
-                    _log.Info($"Next update check in {remainingSeconds} seconds.");
+                    _log.Debug($"Next update check in {remainingSeconds} seconds.");
                 }
                 else
                 {
-                    _log.Debug($"Update check is due now.");
+                    _log.Info($"Update check is due now.");
                 }
             }
         }
@@ -286,12 +286,12 @@ public partial class ServerStatusService : IServerStatusService
     {
         var serviceStartedAt = _mineCraftSchedulerService.GetCurrentTime();
         _mineCraftSchedulerService.SetServiceStartedAt(serviceStartedAt);
-        _log.Debug($"Service started at {serviceStartedAt:yyyy-MM-dd HH:mm:ss.fff}.");
+        _log.Info($"Service started at {serviceStartedAt:yyyy-MM-dd HH:mm:ss.fff}.");
         
         var updateCheckIntervalSeconds = _updateCheckIntervalsSeconds.FirstOrDefault();
         var updateCheckTime = serviceStartedAt.AddSeconds(updateCheckIntervalSeconds);
         _mineCraftSchedulerService.SetUpdateCheckTime(updateCheckTime);
-        _log.Debug($"Scheduling next update check for {updateCheckTime:yyyy-MM-dd HH:mm:ss.fff}.");
+        _log.Info($"Scheduling next update check for {updateCheckTime:yyyy-MM-dd HH:mm:ss.fff}.");
         if (_updateCheckIntervalsSeconds.Count > 1) //keep the last item in the list. it will be used for subsequent checks.
         {
             _updateCheckIntervalsSeconds.Remove(updateCheckIntervalSeconds);
@@ -304,7 +304,7 @@ public partial class ServerStatusService : IServerStatusService
         _mineCraftSchedulerService.SetServiceStartedAt(now);
         var autoShutdownTime = now.AddSeconds(_autoShutdownAfterSeconds);
         _mineCraftSchedulerService.SetAutoShutdownTime(autoShutdownTime);
-        _log.Debug($"Auto-shutdown timer reset due to server restarting post patching. Next auto-shutdown scheduled for {autoShutdownTime:yyyy-MM-dd HH:mm:ss.fff}");        
+        _log.Info($"Setting Auto-shutdown to {autoShutdownTime:yyyy-MM-dd HH:mm:ss.fff}.");        
     }
     
 }
