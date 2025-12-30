@@ -36,7 +36,7 @@ public class ServerAutoStartService : IServerAutoStartService
 
         _log.Info($"Auto-starting Minecraft server with {_options.AutoStartDelaySeconds} second delay");
         await Task.Delay(_options.AutoStartDelaySeconds * 1000, cancellationToken);
-        
+
         var success = await _minecraftService.StartServerAsync();
         if (success)
         {

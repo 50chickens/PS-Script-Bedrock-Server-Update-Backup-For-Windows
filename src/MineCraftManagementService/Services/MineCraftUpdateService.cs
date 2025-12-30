@@ -1,4 +1,3 @@
-using MineCraftManagementService.Extensions;
 using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
@@ -38,12 +37,12 @@ public class MineCraftUpdateService : IMineCraftUpdateService
         try
         {
             // Check server uptime - don't check for updates if server hasn't been up long enough
-            var serverUptime = _minecraftService.ServerStartTime == DateTime.MinValue 
-                ? TimeSpan.Zero 
+            var serverUptime = _minecraftService.ServerStartTime == DateTime.MinValue
+                ? TimeSpan.Zero
                 : DateTime.Now - _minecraftService.ServerStartTime;
-            
+
             _log.Debug($"NewVersionIsAvailable called. Current version: {currentVersion}, Server uptime: {serverUptime.TotalSeconds:F0}s");
-            
+
             if (serverUptime.TotalSeconds < _minimumServerUptimeForUpdateSeconds)
             {
                 _log.Debug($"Update check skipped. Server uptime is {serverUptime.TotalSeconds:F0} seconds. Have not yet reached minimum uptime of {_minimumServerUptimeForUpdateSeconds} seconds.");
@@ -106,6 +105,6 @@ public class MineCraftUpdateService : IMineCraftUpdateService
     }
 
     // Helper methods to extract version from different API responses
-    
+
 }
 

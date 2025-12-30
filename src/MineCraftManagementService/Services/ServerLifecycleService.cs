@@ -23,7 +23,7 @@ public class ServerLifecycleService : IServerLifecycleService
         ILog<ServerLifecycleService> log,
         IMineCraftServerService minecraftService,
         IPreFlightCheckService preFlightCheckService,
-        
+
         IServerStatusProvider statusProvider,
         IMinecraftServerPatchService patchService,
         IMineCraftBackupService backupService,
@@ -74,9 +74,9 @@ public class ServerLifecycleService : IServerLifecycleService
 
                     case MineCraftServerStatus.ShouldBeStopped:
                         await HandleStopServerAsync();
-                        
+
                         continue;
-                        
+
                     case MineCraftServerStatus.ShouldBePatched:
                         await HandlePatchServerAsync(lifecycleState.PatchVersion ?? "", cancellationToken);
                         continue;
@@ -139,11 +139,11 @@ public class ServerLifecycleService : IServerLifecycleService
             _log.Warn("Graceful shutdown failed, forcing server stop");
             await _minecraftService.ForceStopServerAsync();
         }
-        _log.Info("Server stopped successfully.");   
+        _log.Info("Server stopped successfully.");
         _log.Debug("Waiting for ports to be released after server shutdown...");
         await Task.Delay(2000);
     }
-    
+
     private async Task HandlePatchServerAsync(string patchVersion, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(patchVersion))
@@ -152,11 +152,11 @@ public class ServerLifecycleService : IServerLifecycleService
         }
 
         _log.Info($"Applying server update patch to version {patchVersion}...");
-        
+
         // Create backup before applying patch
         var backupPath = _backupService.CreateBackupZipFromServerFolder();
         _log.Info($"Backed up current installation to {backupPath}");
-        
+
         // Apply the patch with the specific version
         await _patchService.ApplyUpdateAsync(patchVersion, cancellationToken);
         _log.Info("Patch applied successfully.");
@@ -183,20 +183,20 @@ public class ServerLifecycleService : IServerLifecycleService
     public async Task StopServerAsync()
     {
         _statusProvider.SetShutdownMode(ServerShutDownMode.WindowsServiceShutdown);
-        
+
         // The ManageLifecycleLoopAsync will see ShouldBeStopped from ShutdownStatusHandler
         // and handle the actual shutdown via HandleStopServerAsync.
         // Wait with a timeout to ensure server stops.
         int maxWaitMs = 60000; // 60 seconds
         int checkIntervalMs = 100;
         int elapsedMs = 0;
-        
+
         while (_minecraftService.IsRunning && elapsedMs < maxWaitMs)
         {
             await Task.Delay(checkIntervalMs);
             elapsedMs += checkIntervalMs;
         }
-        
+
         if (_minecraftService.IsRunning)
         {
             _log.Warn("Server did not stop within timeout, forcing stop");

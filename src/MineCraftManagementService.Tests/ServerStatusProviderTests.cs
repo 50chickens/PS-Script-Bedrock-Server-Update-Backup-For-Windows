@@ -17,14 +17,14 @@ public class ServerStatusProviderTests
     {
         _statusService = Substitute.For<IServerStatusService>();
         var autoShutdownTimeExceedeHandler = new AutoShutdownTimeExceededStatusHandler();
-        
+
         _SrverStatusHandlers = new ServerStatusHandlers
         {
             NormalStatusHandler = () => _statusService.GetLifeCycleStateAsync(),
             WindowsServiceShutdownStatusHandler = new ShutdownStatusHandler().GetStatusAsync,
             AutoShutdownTimeExceededHandler = autoShutdownTimeExceedeHandler.GetStatusAsync
         };
-        
+
         _provider = new ServerStatusProvider(_SrverStatusHandlers);
     }
 

@@ -1,8 +1,8 @@
-using System.Diagnostics;
-using System.Net.NetworkInformation;
 using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
+using System.Diagnostics;
+using System.Net.NetworkInformation;
 
 namespace MineCraftManagementService.Services;
 
@@ -28,7 +28,7 @@ public class PreFlightCheckService : IPreFlightCheckService
     public async Task<bool> CheckAndCleanupAsync()
     {
         _log.Info("Starting preflight checks for existing processes and port conflicts...");
-        
+
         bool processTerminated = await CheckAndTerminateExistingServerProcessAsync();
         await CheckAndTerminatePortConflictsAsync();
 
@@ -51,7 +51,7 @@ public class PreFlightCheckService : IPreFlightCheckService
     private async Task<bool> CheckAndTerminateExistingServerProcessAsync()
     {
         var existingProcesses = Process.GetProcessesByName("bedrock_server");
-        
+
         if (existingProcesses.Length == 0)
         {
             _log.Debug("No existing bedrock_server.exe processes found.");
@@ -94,7 +94,7 @@ public class PreFlightCheckService : IPreFlightCheckService
 
         var portList = string.Join(", ", conflictingPorts);
         _log.Error($"TCP ports {portList} are still in use after bedrock_server.exe termination.");
-        
+
         throw new InvalidOperationException(
             $"Required TCP ports {portList} are in use by another process.");
     }

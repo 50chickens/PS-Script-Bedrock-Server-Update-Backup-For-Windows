@@ -19,14 +19,14 @@ public class MineCraftServerOptions
     public bool EnableAutoStart { get; set; }
     public int AutoStartDelaySeconds { get; set; }
     public int AutoShutdownAfterSeconds { get; set; }
-    
+
     // Server port configuration
     public required int[] ServerPorts { get; set; }
-    
+
     // Graceful shutdown configuration
     public int GracefulShutdownMaxWaitSeconds { get; set; }
     public int GracefulShutdownCheckIntervalMs { get; set; }
-    public required string GracefulShutdownCommand { get; set; }    
+    public required string GracefulShutdownCommand { get; set; }
     // Monitoring configuration
     public int MonitoringIntervalSeconds { get; set; }
     public int UpdateCheckIntervalSeconds { get; set; }

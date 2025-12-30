@@ -92,13 +92,13 @@ public class ServerLifecycleServiceTests
     public async Task Test_That_Server_IsStarted_When_StatusIndicates_ShouldBeStarted()
     {
         _minecraftService.StartServerAsync().Returns(Task.FromResult(true));
-        var statusSequence = new[] { 
+        var statusSequence = new[] {
             new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStarted },
             new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeMonitored }
         };
         int callCount = 0;
         _statusProvider.GetLifeCycleStateAsync().Returns(x => Task.FromResult(statusSequence[Math.Min(callCount++, statusSequence.Length - 1)]));
-        
+
         var cts = new CancellationTokenSource();
         cts.CancelAfter(100);
 
@@ -106,8 +106,8 @@ public class ServerLifecycleServiceTests
         {
             await _service.ManageServerLifecycleAsync(cts.Token);
         }
-        catch (OperationCanceledException) 
-        { 
+        catch (OperationCanceledException)
+        {
             //on purpose to stop the loop
         }
 
@@ -132,7 +132,7 @@ public class ServerLifecycleServiceTests
         };
         int callCount = 0;
         _statusProvider.GetLifeCycleStateAsync().Returns(x => Task.FromResult(statusSequence[Math.Min(callCount++, statusSequence.Length - 1)]));
-        
+
         var cts = new CancellationTokenSource();
         cts.CancelAfter(100);
 
@@ -161,7 +161,7 @@ public class ServerLifecycleServiceTests
         };
         int callCount = 0;
         _statusProvider.GetLifeCycleStateAsync().Returns(x => Task.FromResult(statusSequence[Math.Min(callCount++, statusSequence.Length - 1)]));
-        
+
         var cts = new CancellationTokenSource();
         cts.CancelAfter(100);
 
@@ -184,7 +184,7 @@ public class ServerLifecycleServiceTests
     {
         _statusProvider.GetLifeCycleStateAsync()
             .Returns(Task.FromResult(new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeIdle }));
-        
+
         var cts = new CancellationTokenSource();
         cts.CancelAfter(100);
 
@@ -229,10 +229,11 @@ public class ServerLifecycleServiceTests
     {
         // Setup: Server is running, then becomes not running after a short delay
         _minecraftService.IsRunning.Returns(true);
-        
+
         // Simulate server stopping after SetShutdownMode is called
         var callCount = 0;
-        _minecraftService.IsRunning.Returns(x => {
+        _minecraftService.IsRunning.Returns(x =>
+        {
             callCount++;
             // First few calls return true, then false to simulate server stopping
             return callCount < 3;
@@ -256,7 +257,8 @@ public class ServerLifecycleServiceTests
     {
         // Setup: Server stops immediately 
         var callCount = 0;
-        _minecraftService.IsRunning.Returns(x => {
+        _minecraftService.IsRunning.Returns(x =>
+        {
             callCount++;
             return callCount < 2; // Stop after first check
         });
@@ -280,11 +282,12 @@ public class ServerLifecycleServiceTests
         // Setup: StopServerAsync should trigger the status provider shutdown mode
         // Server is running initially, then stops
         var callCount = 0;
-        _minecraftService.IsRunning.Returns(x => {
+        _minecraftService.IsRunning.Returns(x =>
+        {
             callCount++;
             return callCount < 3; // Stop after a few checks
         });
-        
+
         // Call StopServerAsync which should trigger shutdown mode in the provider
         await _service.StopServerAsync();
 
@@ -324,16 +327,16 @@ public class ServerLifecycleServiceTests
         _minecraftService.IsRunning.Returns(false);
         _minecraftService.TryGracefulShutdownAsync().Returns(Task.FromResult(true));
         _autoStartService.ApplyAutoStartAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        
+
         // Server status sequence: First return ShouldBeStopped, then after stop, check should return ShouldBeIdle (not ShouldBeStopped again)
-        var statusSequence = new[] { 
+        var statusSequence = new[] {
             new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStopped },
             new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeIdle },
             new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeIdle }
         };
         int callCount = 0;
         _statusProvider.GetLifeCycleStateAsync().Returns(x => Task.FromResult(statusSequence[Math.Min(callCount++, statusSequence.Length - 1)]));
-        
+
         var cts = new CancellationTokenSource();
         cts.CancelAfter(500); // Allow enough time for multiple iterations
 

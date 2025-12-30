@@ -10,7 +10,7 @@ namespace MineCraftManagementService.Services;
 public class MineCraftBackupService : IMineCraftBackupService
 {
     private readonly ILog<MineCraftBackupService> _log;
-    
+
     private readonly string _serverPath;
     private MineCraftServerOptions _options;
     public MineCraftBackupService(
@@ -29,7 +29,7 @@ public class MineCraftBackupService : IMineCraftBackupService
     /// </summary>
     public string CreateBackupZipFromServerFolder()
     {
-        
+
         var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var backupDir = _options.BackupFolderName;
         if (!Directory.Exists(backupDir))
@@ -57,7 +57,7 @@ public class MineCraftBackupService : IMineCraftBackupService
         }
 
         _log.Info("Backup created successfully");
-        return backupPath;    
+        return backupPath;
     }
 
     /// <summary>

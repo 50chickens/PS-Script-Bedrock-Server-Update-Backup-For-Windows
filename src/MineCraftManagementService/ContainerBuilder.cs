@@ -6,8 +6,8 @@ using Microsoft.Extensions.Logging.EventLog;
 using Microsoft.Extensions.Options;
 using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
-using MineCraftManagementService.Services;
 using MineCraftManagementService.Models;
+using MineCraftManagementService.Services;
 using MineCraftManagementService.Validators;
 
 namespace MineCraftManagementService
@@ -26,7 +26,7 @@ namespace MineCraftManagementService
         public static IHost Build(string[]? args = null)
         {
             args ??= [];
-            
+
             var builder = Host.CreateApplicationBuilder(args);
             ConfigureServices(builder);
             return builder.Build();
@@ -41,14 +41,14 @@ namespace MineCraftManagementService
         {
             // Load logging settings from configuration
             var loggingSettings = builder.Configuration.GetSection("Logging:MineCraft").Get<LoggingSettings>() ?? new LoggingSettings();
-            
+
             // Get the log level for MineCraft from the standard Logging:LogLevel configuration
             var logLevelConfig = builder.Configuration.GetSection("Logging:LogLevel").Get<Dictionary<string, string>>();
             if (logLevelConfig != null && logLevelConfig.TryGetValue("MineCraftManagementService", out var logLevel))
             {
                 loggingSettings.MinimumLogLevel = logLevel;
             }
-            
+
             // Configure NLog logging with settings
             builder.Logging.AddNLogConfiguration(loggingSettings);
             builder.Logging.AddNlogFactoryAdaptor();
@@ -81,44 +81,44 @@ namespace MineCraftManagementService
             // Register services
             builder.Services.AddSingleton<IPreFlightCheckService, PreFlightCheckService>();
             builder.Services.AddSingleton<IMineCraftServerService, MineCraftServerService>();
-            
+
             // Register update-related services
             builder.Services.AddSingleton<IMineCraftVersionService, MineCraftVersionService>();
             builder.Services.AddSingleton<IMineCraftUpdateDownloadService, MineCraftUpdateDownloadService>();
             builder.Services.AddSingleton<IMineCraftBackupService, MineCraftBackupService>();
             builder.Services.AddSingleton<IMineCraftUpdateService, MineCraftUpdateService>();
-            
+
             // Register patch service
             builder.Services.AddSingleton<IMinecraftServerPatchService, MinecraftServerPatchService>();
-            
+
             // Register auto-start service
             builder.Services.AddSingleton<IServerAutoStartService, ServerAutoStartService>();
             // Register scheduler service for time abstraction
             builder.Services.AddSingleton<IMineCraftSchedulerService, MineCraftSchedulerService>();
-            
+
             // Register status provider first (before status service, since status service depends on it)
             var autoShutdownTimeExceededStatusHandler = new AutoShutdownTimeExceededStatusHandler();
-            builder.Services.AddSingleton(sp => 
+            builder.Services.AddSingleton(sp =>
             {
                 return new ServerStatusHandlers
                 {
                     // Normal operation: delegate to the real status service (set later after IServerStatusService is created)
                     NormalStatusHandler = () => sp.GetRequiredService<IServerStatusService>().GetLifeCycleStateAsync(),
-                    
+
                     // Shutdown operation: return ShouldBeStopped once, then ShouldBeIdle
                     WindowsServiceShutdownStatusHandler = new ShutdownStatusHandler().GetStatusAsync,
-                    
+
                     AutoShutdownTimeExceededHandler = () => autoShutdownTimeExceededStatusHandler.GetStatusAsync()
                 };
             });
             builder.Services.AddSingleton<IServerStatusProvider, ServerStatusProvider>();
-            
+
             // Register status service (after status provider)
             builder.Services.AddSingleton<IServerStatusService, ServerStatusService>();
-            
+
             // Register lifecycle service
             builder.Services.AddSingleton<IServerLifecycleService, ServerLifecycleService>();
-            
+
             builder.Services.AddHostedService<MinecraftManagementWorkerService>();
         }
     }

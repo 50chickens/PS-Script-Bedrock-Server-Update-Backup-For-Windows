@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
+using System.Diagnostics;
 
 namespace MineCraftManagementService.Services;
 
@@ -15,7 +15,7 @@ public class MineCraftServerService : IMineCraftServerService
     private Process? _serverProcess;
     private DateTime _serverStartTime = DateTime.MinValue;
     private string _currentVersion = "unknown";
-    
+
     private int _serverProcessId
     {
         get
@@ -39,7 +39,7 @@ public class MineCraftServerService : IMineCraftServerService
     }
 
     public DateTime ServerStartTime => _serverStartTime;
-    
+
     /// <summary>
     /// Gets the current server version from VERSION.TXT or defaults to "unknown".
     /// </summary>
@@ -118,7 +118,7 @@ public class MineCraftServerService : IMineCraftServerService
                 return true;
             }
         }
-        
+
         _log.Info($"No process found with name {_options.ServerExecutableName}");
         return false;
     }
@@ -145,9 +145,9 @@ public class MineCraftServerService : IMineCraftServerService
         else
         {
             _log.Info("Stored process Id is not valid.");
-            _serverProcess = null; 
+            _serverProcess = null;
             return false;
-            
+
         }
     }
     /// <summary>
@@ -164,7 +164,7 @@ public class MineCraftServerService : IMineCraftServerService
         else
         {
             _log.Info("Stored process reference invalid, attempting to locate process...");
-            
+
             bool foundProcessByProcessId = CheckForProcessbyProcessId();
             if (foundProcessByProcessId)
             {
@@ -246,7 +246,7 @@ public class MineCraftServerService : IMineCraftServerService
         {
             _log.Info("Force killing Bedrock server process");
             _serverProcess.Kill(true);
-            
+
             int stopTimeoutMs = _options.StopTimeoutSeconds * 1000;
             var killTask = Task.Run(() => _serverProcess.WaitForExit(stopTimeoutMs));
             await Task.WhenAny(killTask, Task.Delay(stopTimeoutMs));
@@ -297,14 +297,14 @@ public class MineCraftServerService : IMineCraftServerService
             return;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromHours(1));
-        
+
         while (!_serverProcess.HasExited && !cts.Token.IsCancellationRequested)
         {
             var line = await _serverProcess.StandardOutput.ReadLineAsync(cts.Token);
             if (!string.IsNullOrEmpty(line))
             {
                 _log.Info($"{line}");
-                
+
                 if (line.Contains("Version:"))
                 {
                     ExtractVersionFromOutput(line);

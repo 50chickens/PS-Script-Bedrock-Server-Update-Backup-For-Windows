@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
-using System.ComponentModel.DataAnnotations;
 using MineCraftManagementService.Models;
+using System.ComponentModel.DataAnnotations;
 
 namespace MineCraftManagementService.Validators;
 

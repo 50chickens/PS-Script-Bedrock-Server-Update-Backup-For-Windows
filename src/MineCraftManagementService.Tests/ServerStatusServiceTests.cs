@@ -32,7 +32,7 @@ public class ServerStatusServiceTests
         _statusProvider = Substitute.For<IServerStatusProvider>();
         _schedulerService = Substitute.For<IMineCraftSchedulerService>();
         _options = TestUtils.CreateOptions();
-        
+
         // Setup default scheduler mock behavior
         _mockCurrentTime = DateTime.Now;
         _schedulerService.GetCurrentTime().Returns(_ => _mockCurrentTime);
@@ -41,7 +41,7 @@ public class ServerStatusServiceTests
         _schedulerService.GetServiceStartedAt().Returns(DateTime.MinValue);
         _schedulerService.IsAutoShutdownTimeSet().Returns(false);
         _schedulerService.IsUpdateCheckTimeSet().Returns(false);
-        
+
         _service = new ServerStatusService(_log, _minecraftService, _options, _updateService, _schedulerService, _statusProvider);
     }
 
@@ -49,13 +49,13 @@ public class ServerStatusServiceTests
     {
         var opts = options ?? TestUtils.CreateOptions();
         var service = new ServerStatusService(_log, _minecraftService, opts, _updateService, _schedulerService, _statusProvider);
-        
+
         if (mockTime.HasValue)
         {
             _mockCurrentTime = mockTime.Value;
             _schedulerService.GetCurrentTime().Returns(_ => _mockCurrentTime);
         }
-        
+
         return service;
     }
 
@@ -73,7 +73,7 @@ public class ServerStatusServiceTests
         options.EnableAutoStart = false;
         options.AutoShutdownAfterSeconds = 0;
         _service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(false);
         _minecraftService.ServerStartTime.Returns(DateTime.MinValue);
 
@@ -135,7 +135,7 @@ public class ServerStatusServiceTests
         _options.CheckForUpdates = true;
         _options.UpdateCheckIntervalSeconds = 1;
         _options.MinimumServerUptimeForUpdateSeconds = 0;  // Allow immediate update check
-        
+
         // Set scheduler to allow immediate update check
         var now = DateTime.Now;
         _mockCurrentTime = now;
@@ -165,7 +165,7 @@ public class ServerStatusServiceTests
         _options.CheckForUpdates = true;
         _options.UpdateCheckIntervalSeconds = 1;
         _options.MinimumServerUptimeForUpdateSeconds = 0;
-        
+
         // Set scheduler to allow immediate update check
         var now = DateTime.Now;
         _mockCurrentTime = now;
@@ -212,14 +212,14 @@ public class ServerStatusServiceTests
         options.AutoShutdownAfterSeconds = 50;
         options.CheckForUpdates = false;  // Disable update checks to isolate auto-shutdown test
         _service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now);
 
         // First call: registers that server is running and sets auto-shutdown timer to now + 50 seconds
         var firstStatus = await _service.GetLifeCycleStateAsync();
         Assert.That(firstStatus.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeMonitored));
-        
+
         // In real scenario, wait 51 seconds for auto-shutdown timer to expire, then call again
         // For unit testing, this would require mocking DateTime.Now or actually waiting 51 seconds
     }
@@ -236,7 +236,7 @@ public class ServerStatusServiceTests
         options.AutoShutdownAfterSeconds = 50;
         options.EnableAutoStart = false;
         _service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(false);
         _minecraftService.ServerStartTime.Returns(DateTime.Now.AddSeconds(-100));
 
@@ -274,7 +274,7 @@ public class ServerStatusServiceTests
         options.AutoShutdownAfterSeconds = 50;
         options.EnableAutoStart = true;
         _service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(false);
         _minecraftService.ServerStartTime.Returns(DateTime.Now.AddSeconds(-100));
 
@@ -301,7 +301,7 @@ public class ServerStatusServiceTests
         options.CheckForUpdates = true;
         options.UpdateCheckIntervalSeconds = 1;
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now.AddSeconds(-100));
         _minecraftService.CurrentVersion.Returns("1.0.0");
@@ -310,12 +310,12 @@ public class ServerStatusServiceTests
         var now = DateTime.Now;
         _mockCurrentTime = now;
         _schedulerService.GetCurrentTime().Returns(_ => _mockCurrentTime);
-        
+
         var autoShutdownTime = now.AddSeconds(-10);  // Already past scheduled time
         _schedulerService.SetAutoShutdownTime(Arg.Do<DateTime>(x => autoShutdownTime = x));
         _schedulerService.GetAutoShutdownTime().Returns(call => autoShutdownTime);
         _schedulerService.IsAutoShutdownTimeSet().Returns(call => autoShutdownTime != DateTime.MinValue);
-        
+
         var updateCheckTime = DateTime.MinValue;
         _schedulerService.SetUpdateCheckTime(Arg.Do<DateTime>(x => updateCheckTime = x));
         _schedulerService.GetUpdateCheckTime().Returns(call => updateCheckTime);
@@ -340,22 +340,22 @@ public class ServerStatusServiceTests
         var options = TestUtils.CreateOptions();
         options.CheckForUpdates = true;
         options.UpdateCheckIntervalSeconds = 1;
-        
+
         var now = DateTime.Now;
         _mockCurrentTime = now;
         _schedulerService.GetCurrentTime().Returns(_ => _mockCurrentTime);
-        
+
         // Track update check time state - must be set BEFORE service creation
         var updateCheckTime = now;  // Due now
         _schedulerService.SetUpdateCheckTime(Arg.Do<DateTime>(x => updateCheckTime = x));
         _schedulerService.GetUpdateCheckTime().Returns(call => updateCheckTime);
         _schedulerService.IsUpdateCheckTimeSet().Returns(call => true);  // Pre-set
-        
+
         _schedulerService.IsAutoShutdownTimeSet().Returns(false);
         _schedulerService.SetAutoShutdownTime(Arg.Any<DateTime>());
-        
+
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now);
         _minecraftService.CurrentVersion.Returns("1.0.0");
@@ -379,11 +379,11 @@ public class ServerStatusServiceTests
         var options = TestUtils.CreateOptions();
         options.CheckForUpdates = true;
         options.UpdateCheckIntervalSeconds = 1; // 1 second interval
-        
+
         var baseTime = DateTime.Now;
         _mockCurrentTime = baseTime;
         _schedulerService.GetCurrentTime().Returns(_ => _mockCurrentTime);
-        
+
         // Track the update check time state - setup BEFORE service creation
         var updateCheckTime = baseTime;  // Initially due now
         _schedulerService.SetUpdateCheckTime(Arg.Do<DateTime>(x => updateCheckTime = x));
@@ -391,13 +391,13 @@ public class ServerStatusServiceTests
         _schedulerService.IsUpdateCheckTimeSet().Returns(true);  // Pre-set
         _schedulerService.IsAutoShutdownTimeSet().Returns(false);
         _schedulerService.SetAutoShutdownTime(Arg.Any<DateTime>());
-        
+
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now);
         _minecraftService.CurrentVersion.Returns("1.0.0");
-        
+
         _updateService.NewVersionIsAvailable(Arg.Any<string>()).Returns(Task.FromResult((false, "", "")));
 
         // First call should trigger the update check
@@ -408,10 +408,10 @@ public class ServerStatusServiceTests
 
         // Advance time by the specified amount
         _mockCurrentTime = baseTime.AddSeconds(secondsElapsed);
-        
+
         // Second call
         await service.GetLifeCycleStateAsync();
-        
+
         if (secondsElapsed >= 2)
         {
             // Interval exceeded, should check again
@@ -438,7 +438,7 @@ public class ServerStatusServiceTests
         options.CheckForUpdates = true;
         options.AutoShutdownAfterSeconds = 0; // Disable auto-shutdown
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now);
         _minecraftService.CurrentVersion.Returns("1.0.0");
@@ -460,7 +460,7 @@ public class ServerStatusServiceTests
         var options = TestUtils.CreateOptions();
         options.AutoShutdownAfterSeconds = 0; // Disabled
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now.AddSeconds(-1000));
 
@@ -480,7 +480,7 @@ public class ServerStatusServiceTests
         var options = TestUtils.CreateOptions();
         options.AutoShutdownAfterSeconds = -1; // Invalid but should handle gracefully
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now.AddSeconds(-1000));
 
@@ -500,7 +500,7 @@ public class ServerStatusServiceTests
         var options = TestUtils.CreateOptions();
         options.CheckForUpdates = false;
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now);
 
@@ -524,7 +524,7 @@ public class ServerStatusServiceTests
         var options = TestUtils.CreateOptions();
         options.AutoShutdownAfterSeconds = 50;
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.MinValue); // Very old time
 
@@ -544,7 +544,7 @@ public class ServerStatusServiceTests
         options.AutoShutdownAfterSeconds = 600; // 10 minutes
         options.CheckForUpdates = true;
         var service = new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.ServerStartTime.Returns(DateTime.Now.AddSeconds(-100)); // 100 seconds elapsed
         _minecraftService.CurrentVersion.Returns("1.0.0");
@@ -566,7 +566,7 @@ public class ServerStatusServiceTests
         var options = TestUtils.CreateOptions();
         options.CheckForUpdates = false;
         var service = (ServerStatusService)new ServerStatusService(_log, _minecraftService, options, _updateService, _schedulerService, _statusProvider);
-        
+
         _minecraftService.IsRunning.Returns(true);
         _minecraftService.CurrentVersion.Returns("1.0.0");
         _updateService.NewVersionIsAvailable(Arg.Any<string>()).Returns(Task.FromResult((true, "Update available", "1.0.1")));

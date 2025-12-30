@@ -36,7 +36,7 @@ namespace MineCraftManagementService.Tests
         {
             using var host = ContainerBuilder.Build();
             var schedulerService = host.Services.GetRequiredService<IMineCraftSchedulerService>();
-            
+
             Assert.That(schedulerService, Is.Not.Null);
             Assert.That(schedulerService, Is.InstanceOf<MineCraftSchedulerService>());
         }
@@ -50,7 +50,7 @@ namespace MineCraftManagementService.Tests
         {
             using var host = ContainerBuilder.Build();
             var statusService = host.Services.GetRequiredService<IServerStatusService>();
-            
+
             Assert.That(statusService, Is.Not.Null);
             Assert.That(statusService, Is.InstanceOf<ServerStatusService>());
         }

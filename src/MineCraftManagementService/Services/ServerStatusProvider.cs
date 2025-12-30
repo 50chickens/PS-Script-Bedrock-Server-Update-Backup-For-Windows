@@ -26,9 +26,9 @@ public class ServerStatusProvider : IServerStatusProvider
     /// Gets the appropriate status handler based on current operational mode.
     /// Priority: WindowsServiceShutdown > AutoShutdown > Normal
     /// </summary>
-    public Func<Task<MineCraftServerLifecycleStatus>> GetStatusHandler => 
-        _windowsServiceIsShuttingDown ? _statusHandler.WindowsServiceShutdownStatusHandler 
-        : _autoShutdownTimeExceeded ? _statusHandler.AutoShutdownTimeExceededHandler 
+    public Func<Task<MineCraftServerLifecycleStatus>> GetStatusHandler =>
+        _windowsServiceIsShuttingDown ? _statusHandler.WindowsServiceShutdownStatusHandler
+        : _autoShutdownTimeExceeded ? _statusHandler.AutoShutdownTimeExceededHandler
         : _statusHandler.NormalStatusHandler;
 
     /// <summary>

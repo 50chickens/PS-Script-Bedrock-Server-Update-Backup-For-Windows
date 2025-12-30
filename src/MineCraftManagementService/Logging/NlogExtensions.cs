@@ -1,7 +1,7 @@
-using System.Collections.Specialized;
 using Microsoft.Extensions.Logging;
 using NLog.Config;
 using NLog.Targets;
+using System.Collections.Specialized;
 
 namespace MineCraftManagementService.Logging;
 
@@ -25,11 +25,11 @@ public static class NLogExtensions
     public static ILoggingBuilder AddNLogConfiguration(this ILoggingBuilder builder, LoggingSettings? settings = null)
     {
         settings ??= new LoggingSettings();
-        
+
         var nlogConfig = new LoggingConfiguration();
         var layout = "${longdate}|${level:uppercase=true}|${logger:shortName=true}|${message}${onexception:${newline}${exception:format=tostring}}";
         var logLevel = settings.GetLogLevel();
-        
+
         if (settings.EnableConsoleLogging)
         {
             var consoleTarget = new ColoredConsoleTarget("console")
@@ -39,13 +39,13 @@ public static class NLogExtensions
             nlogConfig.AddTarget(consoleTarget);
             nlogConfig.AddRule(logLevel, NLog.LogLevel.Fatal, consoleTarget);
         }
-        
+
         if (settings.EnableFileLogging)
         {
             var logFilePath = settings.GetLogFilePath();
             var archiveFolderPath = settings.GetArchiveFolderPath();
             var archiveFileName = Path.Combine(archiveFolderPath, Path.GetFileNameWithoutExtension(settings.LogFileName) + "-{#}.log");
-            
+
             var fileTarget = new FileTarget("file")
             {
                 FileName = logFilePath,
@@ -59,7 +59,7 @@ public static class NLogExtensions
             nlogConfig.AddTarget(fileTarget);
             nlogConfig.AddRule(logLevel, NLog.LogLevel.Fatal, fileTarget);
         }
-        
+
         NLog.LogManager.Configuration = nlogConfig;
         return builder;
     }

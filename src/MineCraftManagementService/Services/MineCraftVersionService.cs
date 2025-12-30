@@ -32,22 +32,22 @@ public class MineCraftVersionService : IMineCraftVersionService
 
             _log.Debug("Fetching latest version from Microsoft API...");
             _log.Debug($"API URL: {_options.MineCraftVersionApiUrl}");
-            
+
             var response = await httpClient.GetAsync(
                 _options.MineCraftVersionApiUrl,
                 cancellationToken);
-            
+
             _log.Debug($"HTTP Response Status: {response.StatusCode}");
-            
+
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
             _log.Debug($"Response content length: {content.Length} bytes");
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _log.Error($"API returned non-success status: {response.StatusCode}. Content: {content}");
                 return null;
             }
-            
+
             if (content.TryGetMineCraftServer(out var mineCraftServer))
             {
                 _log.Info("Latest version from Microsoft API: " + mineCraftServer.Version);
@@ -62,5 +62,5 @@ public class MineCraftVersionService : IMineCraftVersionService
             return null;
         }
     }
-    
+
 }

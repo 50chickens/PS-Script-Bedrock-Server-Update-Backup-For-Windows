@@ -1,6 +1,6 @@
-using System.Reflection;
 using Microsoft.Extensions.Logging;
 using NLog;
+using System.Reflection;
 using MsLogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace MineCraftManagementService.Logging
@@ -30,37 +30,37 @@ namespace MineCraftManagementService.Logging
             _msLogger = null;
         }
 
-        public void Debug(string message) 
+        public void Debug(string message)
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Debug))
                 _log.Debug(message);
         }
-        
-        public void Info(string message) 
+
+        public void Info(string message)
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Information))
                 _log.Info(message);
         }
-        
-        public void Warn(string message) 
+
+        public void Warn(string message)
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Warning))
                 _log.Warn(message);
         }
-        
-        public void Error(string message) 
+
+        public void Error(string message)
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Error))
                 _log.Error(message);
         }
-        
-        public void Error(Exception ex, string message) 
+
+        public void Error(Exception ex, string message)
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Error))
                 _log.Error(ex, message);
         }
-        
-        public void Trace(string message) 
+
+        public void Trace(string message)
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Trace))
                 _log.Trace(message);

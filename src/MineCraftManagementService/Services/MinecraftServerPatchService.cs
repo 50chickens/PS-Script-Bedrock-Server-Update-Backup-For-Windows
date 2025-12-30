@@ -1,8 +1,8 @@
-using System.IO.Compression;
-using System.Text.Json;
 using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
+using System.IO.Compression;
+using System.Text.Json;
 
 namespace MineCraftManagementService.Services;
 
@@ -38,39 +38,39 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
     public async Task ApplyUpdateAsync(string version, CancellationToken cancellationToken)
     {
         _log.Info($"Downloading Minecraft Bedrock server version {version}...");
-        
+
         // First, get the JSON metadata and extract the Windows download URL
         var downloadUrl = await GetWindowsDownloadUrlAsync(_options.MineCraftVersionApiUrl, cancellationToken);
         if (string.IsNullOrEmpty(downloadUrl))
         {
             throw new InvalidOperationException("Could not find Windows download URL in API response");
         }
-        
+
         _log.Info($"Download URL: {downloadUrl}");
-        
+
         // Build the final filename with version suffix
         var downloadFolder = _options.DownloadFolderName;
         if (string.IsNullOrEmpty(downloadFolder))
         {
             downloadFolder = _options.BackupFolderName;
         }
-        
+
         // Create download folder if it doesn't exist
         Directory.CreateDirectory(downloadFolder);
-        
+
         var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(_options.DownloadFileName);
         var downloadFileName = Path.Combine(downloadFolder, $"{fileNameWithoutExtension}-{version}.zip");
-        
+
         // Remove existing file if configured
         if (_options.OverwriteExistingDownloadFile && File.Exists(downloadFileName))
         {
             _log.Info($"Removing existing download file: {downloadFileName}");
             File.Delete(downloadFileName);
         }
-        
+
         // Download the actual ZIP file
         await DownloadFileAsync(downloadUrl, downloadFileName, cancellationToken);
-        
+
         _log.Info($"Update downloaded to {downloadFileName}");
 
         // Extract update over existing installation
@@ -91,10 +91,10 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
             {
                 httpClient.Timeout = TimeSpan.FromSeconds(_options.DownloadTimeoutSeconds);
                 var response = await httpClient.GetStringAsync(metadataUrl, cancellationToken);
-                
+
                 using var document = JsonDocument.Parse(response);
                 var root = document.RootElement;
-                
+
                 if (root.TryGetProperty("result", out var resultElement) &&
                     resultElement.TryGetProperty("links", out var linksArray))
                 {
@@ -114,7 +114,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
         {
             _log.Error(ex, "Failed to parse download metadata from API");
         }
-        
+
         return null;
     }
 
@@ -128,7 +128,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
             httpClient.Timeout = TimeSpan.FromSeconds(_options.DownloadTimeoutSeconds);
             using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
-            
+
             using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var fileStream = File.Create(filePath);
             // Use larger buffer for faster copying

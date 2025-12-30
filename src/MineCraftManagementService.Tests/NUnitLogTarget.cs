@@ -1,5 +1,4 @@
 using NLog.Targets;
-using NUnit.Framework;
 
 namespace MineCraftManagementService.Tests
 {

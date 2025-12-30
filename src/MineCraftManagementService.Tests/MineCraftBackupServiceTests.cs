@@ -2,7 +2,6 @@ using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
 using MineCraftManagementService.Services;
-using NSubstitute;
 
 namespace MineCraftManagementService.Tests;
 
@@ -28,12 +27,12 @@ public class MineCraftBackupServiceTests
         var testId = Guid.NewGuid().ToString().Substring(0, 8);
         options.ServerPath = Path.Combine(tempDir, $"minecraft_test_server_{testId}");
         options.BackupFolderName = Path.Combine(tempDir, $"minecraft_test_backups_{testId}");
-        
+
         // Create server directory with a test file so backup has something to zip
         Directory.CreateDirectory(options.ServerPath);
         File.WriteAllText(Path.Combine(options.ServerPath, "test.txt"), "test content");
         Directory.CreateDirectory(options.BackupFolderName);
-        
+
         _options = options;
         _service = new MineCraftBackupService(_log, _options);
     }

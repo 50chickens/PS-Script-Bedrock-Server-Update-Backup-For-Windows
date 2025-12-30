@@ -1,22 +1,13 @@
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Configuration;
-using Microsoft.Extensions.Logging.EventLog;
-using Microsoft.Extensions.Options;
 using MineCraftManagementService;
-using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
-using MineCraftManagementService.Services;
-using MineCraftManagementService.Models;
-using MineCraftManagementService.Validators;
 
 internal class Program
 {
     private static async Task Main(string[] args)
     {
         var log = LogManager.GetLogger<Program>();
-        
+
         try
         {
             using var host = ContainerBuilder.Build(args);
