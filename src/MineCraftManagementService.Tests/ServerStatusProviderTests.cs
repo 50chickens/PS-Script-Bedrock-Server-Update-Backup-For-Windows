@@ -108,7 +108,7 @@ public class ServerStatusProviderTests
         _provider.SetShutdownMode(mode);
 
         var lifecycleState = await _provider.GetLifeCycleStateAsync();
-        Assert.That(lifecycleState.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeStopped));
+        Assert.That(lifecycleState.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeIdle));
         // Verify status service was never called
         await _statusService.DidNotReceive().GetLifeCycleStateAsync();
     }
@@ -146,21 +146,21 @@ public class ServerStatusProviderTests
     /// Importance: Safety - ensures auto-shutdown always blocks restart.
     /// </summary>
     [Test]
-    public async Task Test_That_Once_AutoShutDownTimeExceeded_AlwaysReturnsShouldBeStopped()
+    public async Task Test_That_Once_AutoShutDownTimeExceeded_AlwaysReturnsShouldBeIdle()
     {
         _provider.SetShutdownMode(ServerShutDownMode.DenyRestart);
 
-        // First call returns ShouldBeStopped
+        // First call returns ShouldBeIdle
         var status1 = await _provider.GetLifeCycleStateAsync();
-        Assert.That(status1.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeStopped));
+        Assert.That(status1.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeIdle));
 
-        // Second call returns ShouldBeStopped
+        // Second call returns ShouldBeIdle
         var status2 = await _provider.GetLifeCycleStateAsync();
-        Assert.That(status2.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeStopped));
+        Assert.That(status2.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeIdle));
 
-        // Subsequent calls always return ShouldBeStopped
+        // Subsequent calls always return ShouldBeIdle
         var status3 = await _provider.GetLifeCycleStateAsync();
-        Assert.That(status3.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeStopped));
+        Assert.That(status3.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeIdle));
 
         // StatusService should not be called during shutdown mode
         await _statusService.DidNotReceive().GetLifeCycleStateAsync();

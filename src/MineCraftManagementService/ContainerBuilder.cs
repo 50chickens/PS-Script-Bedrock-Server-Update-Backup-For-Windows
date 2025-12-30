@@ -83,7 +83,6 @@ namespace MineCraftManagementService
             
             // Register auto-start service
             builder.Services.AddSingleton<IServerAutoStartService, ServerAutoStartService>();
-            
             // Register scheduler service for time abstraction
             builder.Services.AddSingleton<IMineCraftSchedulerService, MineCraftSchedulerService>();
             

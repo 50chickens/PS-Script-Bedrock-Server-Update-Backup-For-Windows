@@ -52,12 +52,7 @@ public partial class ServerStatusService : IServerStatusService
         {
         
             // Evaluate lifecycle state in order of priority
-            if (await ShouldBeStopped())
-            {
-                _log.Debug("Determined lifecycle status: ShouldBeStopped");
-                return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStopped };
-            }
-
+            // Check "server not running" states FIRST to avoid repeated stop attempts
             if (ShouldBePatched())
             {
                 var patchVersion = _pendingPatchVersion;
@@ -85,6 +80,13 @@ public partial class ServerStatusService : IServerStatusService
                 _mineCraftSchedulerService.SetAutoShutdownTime(DateTime.MinValue);
                 _mineCraftSchedulerService.SetUpdateCheckTime(DateTime.MinValue);
                 return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeIdle };
+            }
+
+            // Only check ShouldBeStopped if server is actually running (avoids repeated stop attempts)
+            if (await ShouldBeStopped())
+            {
+                _log.Debug("Determined lifecycle status: ShouldBeStopped");
+                return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStopped };
             }
 
             if (ShouldBeMonitored())
@@ -172,6 +174,9 @@ public partial class ServerStatusService : IServerStatusService
     {
         if (!_minecraftService.IsRunning)
         {
+            // Server is not running, clear the scheduled stop times to prevent repeated stop attempts
+            _mineCraftSchedulerService.SetAutoShutdownTime(DateTime.MinValue);
+            _mineCraftSchedulerService.SetUpdateCheckTime(DateTime.MinValue);
             return (false, "");
         }
         if (_autoShutdownAfterSeconds > 0 && _mineCraftSchedulerService.IsAutoShutdownTimeSet() && _mineCraftSchedulerService.GetCurrentTime() >= _mineCraftSchedulerService.GetAutoShutdownTime())
