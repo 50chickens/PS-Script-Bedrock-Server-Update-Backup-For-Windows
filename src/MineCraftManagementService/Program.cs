@@ -34,8 +34,10 @@ internal class Program
             LoggerProviderOptions.RegisterProviderOptions<
                 EventLogSettings, EventLogLoggerProvider>(builder.Services);
 
-            // Register custom ILog<T> factory for dependency injection
+            // Register custom ILog<T> factory for dependency injection with logging level support
             builder.Services.AddSingleton(typeof(ILog<>), typeof(NLogLoggerCore<>));
+            // Also register ILogger<T> so it can be injected into NLogLoggerCore for level checking
+            builder.Services.AddLogging();
 
             // Add configuration for environment
             builder.Configuration.AddEnvironmentVariables(prefix: "MINECRAFT_");
@@ -52,7 +54,8 @@ internal class Program
             builder.Services.AddSingleton<IMineCraftServerService, MineCraftServerService>();
             
             // Register update-related services
-            builder.Services.AddSingleton<IMineCraftUpdateDownloaderService, MineCraftUpdateDownloaderService>();
+            builder.Services.AddSingleton<IMineCraftVersionService, MineCraftVersionService>();
+            builder.Services.AddSingleton<IMineCraftUpdateDownloadService, MineCraftUpdateDownloadService>();
             builder.Services.AddSingleton<IMineCraftBackupService, MineCraftBackupService>();
             builder.Services.AddSingleton<IMineCraftUpdateService, MineCraftUpdateService>();
             
@@ -62,28 +65,25 @@ internal class Program
             // Register auto-start service
             builder.Services.AddSingleton<IServerAutoStartService, ServerAutoStartService>();
             
-            // Register status service
-            builder.Services.AddSingleton<IServerStatusService, ServerStatusService>();
-            
-            // Register status provider with its dependencies
+            // Register status provider first (before status service, since status service depends on it)
+            var autoShutdownTimeExceededStatusHandler = new AutoShutdownTimeExceededStatusHandler();
             builder.Services.AddSingleton(sp => 
             {
-                var statusService = sp.GetRequiredService<IServerStatusService>();
-                var autoShutdownIdleFunc = new AutoShutdownIdleFunc();
-                
-                return new ServerStatusFuncs
+                return new ServerStatusHandlers
                 {
-                    // Normal operation: delegate to the real status service
-                    NormalStatusFunc = () => statusService.GetLifeCycleStateAsync(),
+                    // Normal operation: delegate to the real status service (set later after IServerStatusService is created)
+                    NormalStatusHandler = () => sp.GetRequiredService<IServerStatusService>().GetLifeCycleStateAsync(),
                     
                     // Shutdown operation: return ShouldBeStopped once, then ShouldBeIdle
-                    ShutdownStatusFunc = new ShutdownStatusFunc().GetStatusAsync,
+                    WindowsServiceShutdownStatusHandler = new ShutdownStatusHandler().GetStatusAsync,
                     
-                    // Auto-shutdown idle: always return ShouldBeIdle during cooldown
-                    AutoShutdownIdleFunc = () => autoShutdownIdleFunc.GetStatusAsync()
+                    AutoShutdownTimeExceededHandler = () => autoShutdownTimeExceededStatusHandler.GetStatusAsync()
                 };
             });
             builder.Services.AddSingleton<IServerStatusProvider, ServerStatusProvider>();
+            
+            // Register status service (after status provider)
+            builder.Services.AddSingleton<IServerStatusService, ServerStatusService>();
             
             // Register lifecycle service
             builder.Services.AddSingleton<IServerLifecycleService, ServerLifecycleService>();

@@ -3,10 +3,9 @@ namespace MineCraftManagementService.Models;
 public class MineCraftServerOptions
 {
     public const string Settings = "MineCraftServer";
-
+    public required string MineCraftVersionApiUrl { get; set; }
     public required string ServerPath { get; set; }
     public required string ServerExecutableName { get; set; }
-    public required string MineCraftVersionApiUrl { get; set; }
     public bool UpdateMineCraftOnServiceStart { get; set; }
     public bool CheckForUpdates { get; set; }
     public required string BackupFolderName { get; set; }

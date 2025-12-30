@@ -1,3 +1,4 @@
+using MineCraftManagementService.Enums;
 using MineCraftManagementService.Services;
 
 namespace MineCraftManagementService.Interfaces;
@@ -13,8 +14,7 @@ public interface IServerStatusProvider
     Task<MineCraftServerLifecycleStatus> GetLifeCycleStateAsync();
     
     /// <summary>
-    /// Switches to shutdown mode, which returns ShouldBeStopped once, then ShouldBeIdle.
-    /// This prevents the server from restarting when the Windows service is stopping.
+    /// the shutdown cases are slight different during windows service shutdown vs auto-shutdown time exceeded.
     /// </summary>
-    void SetShutdownMode();
+    void SetShutdownMode(ServerShutDownMode shutDownMode);    
 }

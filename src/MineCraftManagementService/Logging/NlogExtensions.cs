@@ -31,8 +31,8 @@ public static class NLogExtensions
             Layout = "${longdate}|${level:uppercase=true}|${logger:shortName=true}|${message}${onexception:${newline}${exception:format=tostring}}"
         };
         nlogConfig.AddTarget(consoleTarget);
-        // enable Debug+ logging for console to suppress Trace noise
-        nlogConfig.AddRule(NLog.LogLevel.Debug, NLog.LogLevel.Fatal, consoleTarget);
+        // Set default rule to Information level, respecting appsettings.json configuration
+        nlogConfig.AddRule(NLog.LogLevel.Info, NLog.LogLevel.Fatal, consoleTarget);
         NLog.LogManager.Configuration = nlogConfig;
 
         return builder;

@@ -13,7 +13,7 @@ namespace MineCraftManagementService.Services;
 public class MinecraftServerPatchService : IMinecraftServerPatchService
 {
     private readonly ILog<MinecraftServerPatchService> _log;
-    private readonly IMineCraftUpdateDownloaderService _updateDownloaderService;
+    private readonly IMineCraftUpdateDownloadService _updateDownloaderService;
     private readonly string _serverPath;
     private MineCraftServerOptions _options;
     private DateTime _lastUpdateCheckTime = DateTime.MinValue;
@@ -21,7 +21,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
 
     public MinecraftServerPatchService(
         ILog<MinecraftServerPatchService> logger,
-        IMineCraftUpdateDownloaderService updateDownloaderService,
+        IMineCraftUpdateDownloadService updateDownloaderService,
         MineCraftServerOptions options)
     {
         _log = logger ?? throw new ArgumentNullException(nameof(logger));

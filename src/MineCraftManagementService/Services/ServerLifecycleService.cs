@@ -1,3 +1,4 @@
+using MineCraftManagementService.Enums;
 using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
@@ -12,10 +13,8 @@ public class ServerLifecycleService : IServerLifecycleService
     private readonly ILog<ServerLifecycleService> _logger;
     private readonly IMineCraftServerService _minecraftService;
     private readonly IPreFlightCheckService _preFlightCheckService;
-    private readonly IServerStatusService _statusService;
     private readonly IServerStatusProvider _statusProvider;
     private readonly IMinecraftServerPatchService _patchService;
-    private readonly IMineCraftUpdateService _updateService;
     private readonly IMineCraftBackupService _backupService;
     private readonly IServerAutoStartService _autoStartService;
     private readonly MineCraftServerOptions _options;
@@ -24,10 +23,9 @@ public class ServerLifecycleService : IServerLifecycleService
         ILog<ServerLifecycleService> logger,
         IMineCraftServerService minecraftService,
         IPreFlightCheckService preFlightCheckService,
-        IServerStatusService statusService,
+        
         IServerStatusProvider statusProvider,
         IMinecraftServerPatchService patchService,
-        IMineCraftUpdateService updateService,
         IMineCraftBackupService backupService,
         IServerAutoStartService autoStartService,
         MineCraftServerOptions options)
@@ -35,10 +33,8 @@ public class ServerLifecycleService : IServerLifecycleService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _preFlightCheckService = preFlightCheckService ?? throw new ArgumentNullException(nameof(preFlightCheckService));
-        _statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
         _statusProvider = statusProvider ?? throw new ArgumentNullException(nameof(statusProvider));
         _patchService = patchService ?? throw new ArgumentNullException(nameof(patchService));
-        _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
         _autoStartService = autoStartService ?? throw new ArgumentNullException(nameof(autoStartService));
         _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -57,10 +53,10 @@ public class ServerLifecycleService : IServerLifecycleService
         await _autoStartService.ApplyAutoStartAsync(cancellationToken);
 
         // Monitor loop
-        await ManageLifecycleLoopAsync(cancellationToken);
+        await ManageLifecycleAsync(cancellationToken);
     }
 
-    internal async Task ManageLifecycleLoopAsync(CancellationToken cancellationToken)
+    internal async Task ManageLifecycleAsync(CancellationToken cancellationToken)
     {
         int monitoringIntervalMs = _options.MonitoringIntervalSeconds * 1000;
 
@@ -171,11 +167,6 @@ public class ServerLifecycleService : IServerLifecycleService
         // Apply the patch with the specific version
         await _patchService.ApplyUpdateAsync(patchVersion, cancellationToken);
         _logger.Info("Patch applied successfully.");
-        
-        // Reschedule the next update check to run after UpdateCheckIntervalSeconds (24 hours)
-        // This ensures the next check won't happen immediately after restart
-        _statusService.RescheduleNextUpdateCheck(_options.UpdateCheckIntervalSeconds);
-        _logger.Info($"Next update check scheduled for {_options.UpdateCheckIntervalSeconds} seconds from now.");
     }
 
     private async Task HandleServerMonitoringAsync(CancellationToken cancellationToken)
@@ -202,9 +193,9 @@ public class ServerLifecycleService : IServerLifecycleService
     /// </summary>
     public async Task StopServerAsync()
     {
-        _statusProvider.SetShutdownMode();
+        _statusProvider.SetShutdownMode(ServerShutDownMode.WindowsServiceShutdown);
         
-        // The ManageLifecycleLoopAsync will see ShouldBeStopped from ShutdownStatusFunc
+        // The ManageLifecycleLoopAsync will see ShouldBeStopped from ShutdownStatusHandler
         // and handle the actual shutdown via HandleStopServerAsync.
         // Wait with a timeout to ensure server stops.
         int maxWaitMs = 60000; // 60 seconds

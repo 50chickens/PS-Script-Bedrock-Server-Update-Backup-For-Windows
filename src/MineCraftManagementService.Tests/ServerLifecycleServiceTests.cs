@@ -1,3 +1,4 @@
+using MineCraftManagementService.Enums;
 using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Logging;
 using MineCraftManagementService.Models;
@@ -13,7 +14,6 @@ public class ServerLifecycleServiceTests
     private ILog<ServerLifecycleService> _log = null!;
     private IMineCraftServerService _minecraftService = null!;
     private IPreFlightCheckService _preFlightService = null!;
-    private IServerStatusService _statusService = null!;
     private IServerStatusProvider _statusProvider = null!;
     private IMinecraftServerPatchService _patchService = null!;
     private IMineCraftUpdateService _updateService = null!;
@@ -32,7 +32,6 @@ public class ServerLifecycleServiceTests
         _log = LogManager.GetLogger<ServerLifecycleService>();
         _minecraftService = Substitute.For<IMineCraftServerService>();
         _preFlightService = Substitute.For<IPreFlightCheckService>();
-        _statusService = Substitute.For<IServerStatusService>();
         _statusProvider = Substitute.For<IServerStatusProvider>();
         _patchService = Substitute.For<IMinecraftServerPatchService>();
         _updateService = Substitute.For<IMineCraftUpdateService>();
@@ -40,7 +39,7 @@ public class ServerLifecycleServiceTests
         _autoStartService = Substitute.For<IServerAutoStartService>();
         _options = TestUtils.CreateOptions();
 
-        _service = new ServerLifecycleService(_log, _minecraftService, _preFlightService, _statusService, _statusProvider, _patchService, _updateService, _backupService, _autoStartService, _options);
+        _service = new ServerLifecycleService(_log, _minecraftService, _preFlightService, _statusProvider, _patchService, _backupService, _autoStartService, _options);
     }
 
     /// <summary>
@@ -240,7 +239,7 @@ public class ServerLifecycleServiceTests
         await _service.StopServerAsync();
 
         // Verify SetShutdownMode was called to enable shutdown sequence
-        _statusProvider.Received(1).SetShutdownMode();
+        _statusProvider.Received(1).SetShutdownMode(ServerShutDownMode.WindowsServiceShutdown);
         // Server should no longer be running
         Assert.That(_minecraftService.IsRunning, Is.False);
     }
@@ -263,7 +262,7 @@ public class ServerLifecycleServiceTests
         await _service.StopServerAsync();
 
         // Verify SetShutdownMode was called
-        _statusProvider.Received(1).SetShutdownMode();
+        _statusProvider.Received(1).SetShutdownMode(ServerShutDownMode.WindowsServiceShutdown);
         // Server should have stopped
         Assert.That(_minecraftService.IsRunning, Is.False);
     }
@@ -274,7 +273,7 @@ public class ServerLifecycleServiceTests
     /// Importance: Prevents unwanted restart during shutdown - ensures stop request is honored.
     /// </summary>
     [Test]
-    public async Task StopServerAsync_ReplacesFuncToPreventsRestart()
+    public async Task StopServerAsync_ReplacesHandlerToPreventsRestart()
     {
         // Setup: StopServerAsync should trigger the status provider shutdown mode
         // Server is running initially, then stops
@@ -288,7 +287,7 @@ public class ServerLifecycleServiceTests
         await _service.StopServerAsync();
 
         // Verify SetShutdownMode was called on the provider
-        _statusProvider.Received(1).SetShutdownMode();
+        _statusProvider.Received(1).SetShutdownMode(ServerShutDownMode.WindowsServiceShutdown);
         // Server should have stopped
         Assert.That(_minecraftService.IsRunning, Is.False);
     }
@@ -306,7 +305,7 @@ public class ServerLifecycleServiceTests
         await _service.StopServerAsync();
 
         // Verify SetShutdownMode was called even though server is already stopped
-        _statusProvider.Received(1).SetShutdownMode();
+        _statusProvider.Received(1).SetShutdownMode(ServerShutDownMode.AllowRestart);
         // Verify no shutdown methods were called
         await _minecraftService.DidNotReceive().TryGracefulShutdownAsync();
         await _minecraftService.DidNotReceive().ForceStopServerAsync();

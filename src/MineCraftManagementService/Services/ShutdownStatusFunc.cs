@@ -4,11 +4,11 @@ namespace MineCraftManagementService.Services;
 /// Provides the shutdown status sequence that returns ShouldBeStopped once, then ShouldBeIdle.
 /// This prevents the server from restarting when the Windows service is stopping.
 /// </summary>
-public class ShutdownStatusFunc
+public class ShutdownStatusHandler
 {
     private bool _returnedStopped;
 
-    public ShutdownStatusFunc()
+    public ShutdownStatusHandler()
     {
         _returnedStopped = false;
     }

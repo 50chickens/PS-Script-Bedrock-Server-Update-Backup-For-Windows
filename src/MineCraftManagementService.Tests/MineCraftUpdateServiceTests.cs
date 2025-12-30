@@ -12,6 +12,7 @@ public class MineCraftUpdateServiceTests
     private IMineCraftUpdateService _service = null!;
     private ILog<MineCraftUpdateService> _log = null!;
     private IMineCraftServerService _minecraftService = null!;
+    private IMineCraftVersionService _versionService = null!;
     private MineCraftServerOptions _options = null!;
 
     [SetUp]
@@ -24,9 +25,10 @@ public class MineCraftUpdateServiceTests
 
         _log = LogManager.GetLogger<MineCraftUpdateService>();
         _minecraftService = Substitute.For<IMineCraftServerService>();
+        _versionService = Substitute.For<IMineCraftVersionService>();
         _options = TestUtils.CreateOptions();
 
-        _service = new MineCraftUpdateService(_log, _minecraftService, _options);
+        _service = new MineCraftUpdateService(_log, _minecraftService, _versionService, _options);
     }
 
 

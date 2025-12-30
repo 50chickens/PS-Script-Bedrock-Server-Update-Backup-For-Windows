@@ -1,4 +1,5 @@
-﻿using MineCraftManagementService.Interfaces;
+﻿using MineCraftManagementService.Enums;
+using MineCraftManagementService.Interfaces;
 using MineCraftManagementService.Services;
 using NSubstitute;
 
@@ -9,22 +10,22 @@ public class ServerStatusProviderTests
 {
     private IServerStatusProvider _provider = null!;
     private IServerStatusService _statusService = null!;
-    private ServerStatusFuncs _statusFuncs = null!;
+    private ServerStatusHandlers _SrverStatusHandlers = null!;
 
     [SetUp]
     public void Setup()
     {
         _statusService = Substitute.For<IServerStatusService>();
-        var autoShutdownIdleFunc = new AutoShutdownIdleFunc();
+        var autoShutdownTimeExceedeHandler = new AutoShutdownTimeExceededStatusHandler();
         
-        _statusFuncs = new ServerStatusFuncs
+        _SrverStatusHandlers = new ServerStatusHandlers
         {
-            NormalStatusFunc = () => _statusService.GetLifeCycleStateAsync(),
-            ShutdownStatusFunc = new ShutdownStatusFunc().GetStatusAsync,
-            AutoShutdownIdleFunc = () => autoShutdownIdleFunc.GetStatusAsync()
+            NormalStatusHandler = () => _statusService.GetLifeCycleStateAsync(),
+            WindowsServiceShutdownStatusHandler = new ShutdownStatusHandler().GetStatusAsync,
+            AutoShutdownTimeExceededHandler = autoShutdownTimeExceedeHandler.GetStatusAsync
         };
         
-        _provider = new ServerStatusProvider(_statusFuncs);
+        _provider = new ServerStatusProvider(_SrverStatusHandlers);
     }
 
     /// <summary>
@@ -74,9 +75,10 @@ public class ServerStatusProviderTests
     /// Importance: Critical for graceful shutdown - ensures proper sequencing of stop then idle states.
     /// </summary>
     [Test]
-    public async Task SetShutdownMode_ReturnsShutdownSequence()
+    [TestCase(ServerShutDownMode.WindowsServiceShutdown)]
+    public async Task SetShutdownMode_ReturnsShutdownSequence(ServerShutDownMode shutDownMode)
     {
-        _provider.SetShutdownMode();
+        _provider.SetShutdownMode(shutDownMode);
 
         // First call returns ShouldBeStopped
         var status1 = await _provider.GetLifeCycleStateAsync();
@@ -100,14 +102,13 @@ public class ServerStatusProviderTests
     /// Importance: Prevents interference from status checks during shutdown and ensures deterministic shutdown sequence.
     /// </summary>
     [Test]
-    public async Task SetShutdownMode_DoesNotCallStatusService()
+    [TestCase(ServerShutDownMode.DenyRestart)]
+    public async Task SetShutdownModeAutoShutdownExceeded_AlwaysReturnsShouldBeStopped(ServerShutDownMode mode)
     {
-        _provider.SetShutdownMode();
+        _provider.SetShutdownMode(mode);
 
-        await _provider.GetLifeCycleStateAsync();
-        await _provider.GetLifeCycleStateAsync();
-        await _provider.GetLifeCycleStateAsync();
-
+        var lifecycleState = await _provider.GetLifeCycleStateAsync();
+        Assert.That(lifecycleState.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeStopped));
         // Verify status service was never called
         await _statusService.DidNotReceive().GetLifeCycleStateAsync();
     }
@@ -126,7 +127,7 @@ public class ServerStatusProviderTests
         Assert.That(status1.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeMonitored));
 
         // Switch to shutdown mode
-        _provider.SetShutdownMode();
+        _provider.SetShutdownMode(ServerShutDownMode.WindowsServiceShutdown);
 
         // Now it should use shutdown sequence, not status service
         var status2 = await _provider.GetLifeCycleStateAsync();
@@ -138,6 +139,28 @@ public class ServerStatusProviderTests
         // Status service should only be called once (from the first GetStatusAsync)
         await _statusService.Received(1).GetLifeCycleStateAsync();
     }
+    //once auto-shutdown time exceeded, we always return ShouldBeStopped to prevent restart.
+    [Test]
+    public async Task Test_That_Once_AutoShutDownTimeExceeded_AlwaysReturnsShouldBeStopped()
+    {
+        
+        _provider.SetShutdownMode(ServerShutDownMode.DenyRestart);
+
+        // First call returns ShouldBeStopped
+        var status1 = await _provider.GetLifeCycleStateAsync();
+        Assert.That(status1.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeStopped));
+
+        // Second call returns ShouldBeStopped
+        var status2 = await _provider.GetLifeCycleStateAsync();
+        Assert.That(status2.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeStopped));
+
+        // Subsequent calls always return ShouldBeStopped
+        var status3 = await _provider.GetLifeCycleStateAsync();
+        Assert.That(status3.LifecycleStatus, Is.EqualTo(MineCraftServerStatus.ShouldBeStopped));
+
+        // StatusService should not be called during shutdown mode
+        await _statusService.DidNotReceive().GetLifeCycleStateAsync();
+    }
 
     /// <summary>
     /// Test: ServerStatusProvider throws ArgumentNullException when constructed with null status functions.
@@ -145,7 +168,7 @@ public class ServerStatusProviderTests
     /// Importance: Prevents silent failures - ensures constructor validates critical dependencies.
     /// </summary>
     [Test]
-    public void ServerStatusProvider_ThrowsIfStatusFuncsNull()
+    public void ServerStatusProvider_ThrowsIfStatusHandlerIsNull()
     {
         Assert.Throws<ArgumentNullException>(() => new ServerStatusProvider(null!));
     }

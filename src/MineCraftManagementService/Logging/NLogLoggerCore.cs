@@ -1,5 +1,7 @@
 using System.Reflection;
+using Microsoft.Extensions.Logging;
 using NLog;
+using MsLogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace MineCraftManagementService.Logging
 {
@@ -7,32 +9,76 @@ namespace MineCraftManagementService.Logging
     public class NLogLoggerCore<T> : ILog<T>
     {
         private readonly Logger _logger;
+        private readonly ILogger<T>? _msLogger;
 
+        /// <summary>
+        /// Constructor for use with dependency injection.
+        /// </summary>
+        public NLogLoggerCore(ILogger<T> msLogger)
+        {
+            _logger = NLog.LogManager.GetLogger(typeof(T).FullName ?? typeof(T).Name);
+            _msLogger = msLogger;
+        }
+
+        /// <summary>
+        /// Parameterless constructor for use with static LogManager (before DI).
+        /// When used this way, logging level checks are not performed (backward compatibility).
+        /// </summary>
         public NLogLoggerCore()
         {
             _logger = NLog.LogManager.GetLogger(typeof(T).FullName ?? typeof(T).Name);
+            _msLogger = null;
         }
 
-        public void Debug(string message) => _logger.Debug(message);
-        public void Info(string message) => _logger.Info(message);
-        public void Warn(string message) => _logger.Warn(message);
-        public void Error(string message) => _logger.Error(message);
-        public void Error(Exception ex, string message) => _logger.Error(ex, message);
-        public void Trace(string message) => _logger.Trace(message);
+        public void Debug(string message) 
+        {
+            if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Debug))
+                _logger.Debug(message);
+        }
+        
+        public void Info(string message) 
+        {
+            if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Information))
+                _logger.Info(message);
+        }
+        
+        public void Warn(string message) 
+        {
+            if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Warning))
+                _logger.Warn(message);
+        }
+        
+        public void Error(string message) 
+        {
+            if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Error))
+                _logger.Error(message);
+        }
+        
+        public void Error(Exception ex, string message) 
+        {
+            if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Error))
+                _logger.Error(ex, message);
+        }
+        
+        public void Trace(string message) 
+        {
+            if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Trace))
+                _logger.Trace(message);
+        }
 
         public void Info(object payload)
         {
-            var evt = CreateEvent(LogLevel.Info, payload, null);
+            var evt = CreateEvent(NLog.LogLevel.Info, payload, null);
             _logger.Log(evt);
         }
 
         public void Info(string message, object payload)
         {
-            var evt = CreateEvent(LogLevel.Info, payload, message);
+            var evt = CreateEvent(NLog.LogLevel.Info, payload, message);
             _logger.Log(evt);
         }
 
-        private LogEventInfo CreateEvent(LogLevel level, object? payload, string? message)
+        private LogEventInfo CreateEvent(NLog.LogLevel level, object? payload, string? message)
         {
             var messageStr = message;
             if (messageStr == null)

@@ -11,7 +11,7 @@ public class MinecraftServerPatchServiceTests
 {
     private IMinecraftServerPatchService _service = null!;
     private ILog<MinecraftServerPatchService> _log = null!;
-    private IMineCraftUpdateDownloaderService _downloader = null!;
+    private IMineCraftUpdateDownloadService _downloader = null!;
     private MineCraftServerOptions _options = null!;
 
     [SetUp]
@@ -23,7 +23,7 @@ public class MinecraftServerPatchServiceTests
         logBuilder.Build();
 
         _log = LogManager.GetLogger<MinecraftServerPatchService>();
-        _downloader = Substitute.For<IMineCraftUpdateDownloaderService>();
+        _downloader = Substitute.For<IMineCraftUpdateDownloadService>();
         _options = TestUtils.CreateOptions();
 
         _service = new MinecraftServerPatchService(_log, _downloader, _options);
