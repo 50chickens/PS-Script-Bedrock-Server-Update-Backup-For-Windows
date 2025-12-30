@@ -10,10 +10,10 @@ public class MinecraftManagementWorkerService : BackgroundService
     private readonly IServerLifecycleService _lifecycleService;
 
     public MinecraftManagementWorkerService(
-        ILog<MinecraftManagementWorkerService> logger,
+        ILog<MinecraftManagementWorkerService> log,
         IServerLifecycleService lifecycleService)
     {
-        _log = logger ?? throw new ArgumentNullException(nameof(logger));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _lifecycleService = lifecycleService ?? throw new ArgumentNullException(nameof(lifecycleService));
     }
 

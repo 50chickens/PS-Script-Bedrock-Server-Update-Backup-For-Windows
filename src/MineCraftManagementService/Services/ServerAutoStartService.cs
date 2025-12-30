@@ -9,16 +9,16 @@ namespace MineCraftManagementService.Services;
 /// </summary>
 public class ServerAutoStartService : IServerAutoStartService
 {
-    private readonly ILog<ServerAutoStartService> _logger;
+    private readonly ILog<ServerAutoStartService> _log;
     private readonly IMineCraftServerService _minecraftService;
     private readonly MineCraftServerOptions _options;
 
     public ServerAutoStartService(
-        ILog<ServerAutoStartService> logger,
+        ILog<ServerAutoStartService> log,
         IMineCraftServerService minecraftService,
         MineCraftServerOptions options)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _options = options ?? throw new ArgumentNullException(nameof(options));
     }
@@ -34,17 +34,17 @@ public class ServerAutoStartService : IServerAutoStartService
             return;
         }
 
-        _logger.Info($"Auto-starting Minecraft server with {_options.AutoStartDelaySeconds} second delay");
+        _log.Info($"Auto-starting Minecraft server with {_options.AutoStartDelaySeconds} second delay");
         await Task.Delay(_options.AutoStartDelaySeconds * 1000, cancellationToken);
         
         var success = await _minecraftService.StartServerAsync();
         if (success)
         {
-            _logger.Info("Minecraft server auto-started successfully");
+            _log.Info("Minecraft server auto-started successfully");
         }
         else
         {
-            _logger.Error("Failed to auto-start Minecraft server");
+            _log.Error("Failed to auto-start Minecraft server");
         }
     }
 }

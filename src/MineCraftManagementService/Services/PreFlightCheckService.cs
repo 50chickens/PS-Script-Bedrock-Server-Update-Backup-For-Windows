@@ -12,12 +12,12 @@ namespace MineCraftManagementService.Services;
 /// </summary>
 public class PreFlightCheckService : IPreFlightCheckService
 {
-    private readonly ILog<PreFlightCheckService> _logger;
+    private readonly ILog<PreFlightCheckService> _log;
     private readonly int[] _requiredPorts;
 
-    public PreFlightCheckService(ILog<PreFlightCheckService> logger, MineCraftServerOptions options)
+    public PreFlightCheckService(ILog<PreFlightCheckService> log, MineCraftServerOptions options)
     {
-        _logger = logger;
+        _log = log;
         _requiredPorts = options.ServerPorts;
     }
 
@@ -27,19 +27,19 @@ public class PreFlightCheckService : IPreFlightCheckService
     /// </summary>
     public async Task<bool> CheckAndCleanupAsync()
     {
-        _logger.Info("Starting preflight checks for existing processes and port conflicts...");
+        _log.Info("Starting preflight checks for existing processes and port conflicts...");
         
         bool processTerminated = await CheckAndTerminateExistingServerProcessAsync();
         await CheckAndTerminatePortConflictsAsync();
 
         if (processTerminated)
         {
-            _logger.Info("Preflight cleanup completed. Bedrock server process was found and terminated.");
+            _log.Info("Preflight cleanup completed. Bedrock server process was found and terminated.");
             await Task.Delay(1000);
         }
         else
         {
-            _logger.Info("Preflight check complete. No bedrock_server.exe processes found.");
+            _log.Info("Preflight check complete. No bedrock_server.exe processes found.");
         }
 
         return processTerminated;
@@ -54,17 +54,17 @@ public class PreFlightCheckService : IPreFlightCheckService
         
         if (existingProcesses.Length == 0)
         {
-            _logger.Debug("No existing bedrock_server.exe processes found.");
+            _log.Debug("No existing bedrock_server.exe processes found.");
             return false;
         }
 
-        _logger.Warn($"Found {existingProcesses.Length} existing bedrock_server.exe process(es). Terminating...");
+        _log.Warn($"Found {existingProcesses.Length} existing bedrock_server.exe process(es). Terminating...");
 
         foreach (var process in existingProcesses)
         {
-            _logger.Info($"Attempting to terminate bedrock_server.exe (PID: {process.Id})");
+            _log.Info($"Attempting to terminate bedrock_server.exe (PID: {process.Id})");
             process.Kill(true);
-            _logger.Info($"Successfully terminated bedrock_server.exe (PID: {process.Id})");
+            _log.Info($"Successfully terminated bedrock_server.exe (PID: {process.Id})");
         }
 
         return true;
@@ -88,12 +88,12 @@ public class PreFlightCheckService : IPreFlightCheckService
 
         if (conflictingPorts.Count == 0)
         {
-            _logger.Debug($"TCP ports {string.Join(", ", _requiredPorts)} are available.");
+            _log.Debug($"TCP ports {string.Join(", ", _requiredPorts)} are available.");
             return;
         }
 
         var portList = string.Join(", ", conflictingPorts);
-        _logger.Error($"TCP ports {portList} are still in use after bedrock_server.exe termination.");
+        _log.Error($"TCP ports {portList} are still in use after bedrock_server.exe termination.");
         
         throw new InvalidOperationException(
             $"Required TCP ports {portList} are in use by another process.");

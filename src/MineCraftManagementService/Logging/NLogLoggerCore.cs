@@ -8,7 +8,7 @@ namespace MineCraftManagementService.Logging
 
     public class NLogLoggerCore<T> : ILog<T>
     {
-        private readonly Logger _logger;
+        private readonly Logger _log;
         private readonly ILogger<T>? _msLogger;
 
         /// <summary>
@@ -16,7 +16,7 @@ namespace MineCraftManagementService.Logging
         /// </summary>
         public NLogLoggerCore(ILogger<T> msLogger)
         {
-            _logger = NLog.LogManager.GetLogger(typeof(T).FullName ?? typeof(T).Name);
+            _log = NLog.LogManager.GetLogger(typeof(T).FullName ?? typeof(T).Name);
             _msLogger = msLogger;
         }
 
@@ -26,56 +26,56 @@ namespace MineCraftManagementService.Logging
         /// </summary>
         public NLogLoggerCore()
         {
-            _logger = NLog.LogManager.GetLogger(typeof(T).FullName ?? typeof(T).Name);
+            _log = NLog.LogManager.GetLogger(typeof(T).FullName ?? typeof(T).Name);
             _msLogger = null;
         }
 
         public void Debug(string message) 
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Debug))
-                _logger.Debug(message);
+                _log.Debug(message);
         }
         
         public void Info(string message) 
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Information))
-                _logger.Info(message);
+                _log.Info(message);
         }
         
         public void Warn(string message) 
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Warning))
-                _logger.Warn(message);
+                _log.Warn(message);
         }
         
         public void Error(string message) 
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Error))
-                _logger.Error(message);
+                _log.Error(message);
         }
         
         public void Error(Exception ex, string message) 
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Error))
-                _logger.Error(ex, message);
+                _log.Error(ex, message);
         }
         
         public void Trace(string message) 
         {
             if (_msLogger == null || _msLogger.IsEnabled(MsLogLevel.Trace))
-                _logger.Trace(message);
+                _log.Trace(message);
         }
 
         public void Info(object payload)
         {
             var evt = CreateEvent(NLog.LogLevel.Info, payload, null);
-            _logger.Log(evt);
+            _log.Log(evt);
         }
 
         public void Info(string message, object payload)
         {
             var evt = CreateEvent(NLog.LogLevel.Info, payload, message);
-            _logger.Log(evt);
+            _log.Log(evt);
         }
 
         private LogEventInfo CreateEvent(NLog.LogLevel level, object? payload, string? message)
@@ -83,7 +83,7 @@ namespace MineCraftManagementService.Logging
             var messageStr = message;
             if (messageStr == null)
                 messageStr = string.Empty;
-            var evt = new LogEventInfo(level, _logger.Name, messageStr);
+            var evt = new LogEventInfo(level, _log.Name, messageStr);
             if (payload != null)
             {
                 foreach (var kv in ToDictionary(payload))

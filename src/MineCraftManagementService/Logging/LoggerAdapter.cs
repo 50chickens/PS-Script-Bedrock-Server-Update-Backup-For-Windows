@@ -8,19 +8,19 @@ namespace MineCraftManagementService.Logging
     /// </summary>
     public class LoggerAdapter<T> : ILog<T>
     {
-        private readonly ILogger<T> _logger;
+        private readonly ILogger<T> _log;
 
-        public LoggerAdapter(ILogger<T> logger)
+        public LoggerAdapter(ILogger<T> log)
         {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _log = log ?? throw new ArgumentNullException(nameof(log));
         }
 
-        public void Debug(string message) => _logger.LogDebug(message);
-        public void Info(string message) => _logger.LogInformation(message);
-        public void Warn(string message) => _logger.LogWarning(message);
-        public void Error(string message) => _logger.LogError(message);
-        public void Error(Exception ex, string message) => _logger.LogError(ex, message);
-        public void Trace(string message) => _logger.LogTrace(message);
+        public void Debug(string message) => _log.LogDebug(message);
+        public void Info(string message) => _log.LogInformation(message);
+        public void Warn(string message) => _log.LogWarning(message);
+        public void Error(string message) => _log.LogError(message);
+        public void Error(Exception ex, string message) => _log.LogError(ex, message);
+        public void Trace(string message) => _log.LogTrace(message);
 
     }
 }

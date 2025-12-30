@@ -14,10 +14,10 @@ public class MineCraftBackupService : IMineCraftBackupService
     private readonly string _serverPath;
     private MineCraftServerOptions _options;
     public MineCraftBackupService(
-        ILog<MineCraftBackupService> logger,
+        ILog<MineCraftBackupService> log,
         MineCraftServerOptions options)
     {
-        _log = logger ?? throw new ArgumentNullException(nameof(logger));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _serverPath = _options.ServerPath;
     }

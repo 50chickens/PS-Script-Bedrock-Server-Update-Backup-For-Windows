@@ -20,11 +20,11 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
     private readonly TimeSpan _updateCheckInterval = TimeSpan.FromHours(24);
 
     public MinecraftServerPatchService(
-        ILog<MinecraftServerPatchService> logger,
+        ILog<MinecraftServerPatchService> log,
         IMineCraftUpdateDownloadService updateDownloaderService,
         MineCraftServerOptions options)
     {
-        _log = logger ?? throw new ArgumentNullException(nameof(logger));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _updateDownloaderService = updateDownloaderService ?? throw new ArgumentNullException(nameof(updateDownloaderService));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _serverPath = _options.ServerPath;

@@ -25,7 +25,7 @@ namespace MineCraftManagementService
         /// <returns>A configured IHost with all services registered</returns>
         public static IHost Build(string[]? args = null)
         {
-            args ??= new string[] { };
+            args ??= [];
             
             var builder = Host.CreateApplicationBuilder(args);
             ConfigureServices(builder);

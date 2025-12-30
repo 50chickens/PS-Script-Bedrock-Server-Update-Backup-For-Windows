@@ -17,12 +17,12 @@ public class MineCraftUpdateService : IMineCraftUpdateService
     private readonly int _minimumServerUptimeForUpdateSeconds;
 
     public MineCraftUpdateService(
-        ILog<MineCraftUpdateService> logger,
+        ILog<MineCraftUpdateService> log,
         IMineCraftServerService minecraftService,
         IMineCraftVersionService versionService,
         MineCraftServerOptions options)
     {
-        _log = logger ?? throw new ArgumentNullException(nameof(logger));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _mineCraftVersionService = versionService ?? throw new ArgumentNullException(nameof(versionService));
         _options = options ?? throw new ArgumentNullException(nameof(options));

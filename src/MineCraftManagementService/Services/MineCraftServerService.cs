@@ -10,7 +10,7 @@ namespace MineCraftManagementService.Services;
 /// </summary>
 public class MineCraftServerService : IMineCraftServerService
 {
-    private readonly ILog<MineCraftServerService> _logger;
+    private readonly ILog<MineCraftServerService> _log;
     private readonly MineCraftServerOptions _options;
     private Process? _serverProcess;
     private DateTime _serverStartTime = DateTime.MinValue;
@@ -53,9 +53,9 @@ public class MineCraftServerService : IMineCraftServerService
         }
     }
 
-    public MineCraftServerService(ILog<MineCraftServerService> logger, MineCraftServerOptions options)
+    public MineCraftServerService(ILog<MineCraftServerService> log, MineCraftServerOptions options)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _isRunning = false;
         _currentVersion = GetCurrentVersionFromFiles();
@@ -68,17 +68,17 @@ public class MineCraftServerService : IMineCraftServerService
     {
         if (IsRunning)
         {
-            _logger.Warn("Minecraft server is already running.");
+            _log.Warn("Minecraft server is already running.");
             return true;
         }
 
-        _logger.Info($"Starting Minecraft server from: {_options.ServerPath}");
+        _log.Info($"Starting Minecraft server from: {_options.ServerPath}");
 
         var serverExecutablePath = Path.Combine(_options.ServerPath, _options.ServerExecutableName);
 
         if (!File.Exists(serverExecutablePath))
         {
-            _logger.Error($"Server executable not found at: {serverExecutablePath}");
+            _log.Error($"Server executable not found at: {serverExecutablePath}");
             return false;
         }
 
@@ -96,7 +96,7 @@ public class MineCraftServerService : IMineCraftServerService
         _serverProcess = Process.Start(processStartInfo)!;
         _serverStartTime = DateTime.Now;
         _isRunning = true;
-        _logger.Info($"Minecraft server started successfully with PID: {_serverProcess.Id}");
+        _log.Info($"Minecraft server started successfully with PID: {_serverProcess.Id}");
 
         // Monitor output
         _ = MonitorProcessOutputAsync();
@@ -115,14 +115,14 @@ public class MineCraftServerService : IMineCraftServerService
             var process = processes.Where(p => !p.HasExited).FirstOrDefault(); //it's possible that multiple processes exist with the same name. todo: fix that.
             if (process != null)
             {
-                _logger.Info($"Found process with name {_options.ServerExecutableName} and PID: {process.Id}");
+                _log.Info($"Found process with name {_options.ServerExecutableName} and PID: {process.Id}");
                 _serverProcess = process;
                 _isRunning = true;
                 return true;
             }
         }
         
-        _logger.Info($"No process found with name {_options.ServerExecutableName}");
+        _log.Info($"No process found with name {_options.ServerExecutableName}");
         return false;
     }
     private bool CheckForProcessbyProcessId()
@@ -134,20 +134,20 @@ public class MineCraftServerService : IMineCraftServerService
             if (processExists)
             {
                 var process = Process.GetProcessById(processId);
-                _logger.Info($"Found process with stored process Id: {processId}");
+                _log.Info($"Found process with stored process Id: {processId}");
                 _serverProcess = process;
                 _isRunning = true;
                 return true;
             }
             else
             {
-                _logger.Info("No process found with the stored process Id.");
+                _log.Info("No process found with the stored process Id.");
                 return false;
             }
         }
         else
         {
-            _logger.Info("Stored process Id is not valid.");
+            _log.Info("Stored process Id is not valid.");
             _serverProcess = null; 
             return false;
             
@@ -163,45 +163,45 @@ public class MineCraftServerService : IMineCraftServerService
         // (it has redirected stdin from when we started it)
         if (_serverProcess != null && !_serverProcess.HasExited)
         {
-            _logger.Info("Using stored process reference for graceful shutdown");
+            _log.Info("Using stored process reference for graceful shutdown");
         }
         else
         {
             // Otherwise, try to find the process by ID or name
-            _logger.Info("Stored process reference invalid, attempting to locate process...");
+            _log.Info("Stored process reference invalid, attempting to locate process...");
             
             bool foundProcessByProcessId = CheckForProcessbyProcessId();
             if (foundProcessByProcessId)
             {
-                _logger.Info("Found server process by stored process Id.");
+                _log.Info("Found server process by stored process Id.");
             }
             else
             {
                 bool foundProcessByName = CheckForProcessByName();
                 if (foundProcessByName)
                 {
-                    _logger.Info("Process id was not valid, but found server process by executable name.");
+                    _log.Info("Process id was not valid, but found server process by executable name.");
                 }
                 else
                 {
-                    _logger.Info("Could not find Minecraft server process by either name, or id.");
+                    _log.Info("Could not find Minecraft server process by either name, or id.");
                     return true;
                 }
             }
         }
 
-        _logger.Info("Attempting graceful shutdown by sending 'stop' command to server stdin");
+        _log.Info("Attempting graceful shutdown by sending 'stop' command to server stdin");
 
         // Write "stop" command to the server's standard input with proper line termination
         if (_serverProcess?.StandardInput != null)
         {
             _serverProcess.StandardInput.Write($"{_options.GracefulShutdownCommand}\r\n");
             _serverProcess.StandardInput.Flush();
-            _logger.Info($"Sent '{_options.GracefulShutdownCommand}' command to server stdin, waiting for process termination...");
+            _log.Info($"Sent '{_options.GracefulShutdownCommand}' command to server stdin, waiting for process termination...");
         }
         else
         {
-            _logger.Warn("StandardInput not available for graceful shutdown (process was not started with stdin redirection), will force stop server");
+            _log.Warn("StandardInput not available for graceful shutdown (process was not started with stdin redirection), will force stop server");
             return false;
         }
 
@@ -214,7 +214,7 @@ public class MineCraftServerService : IMineCraftServerService
         {
             if (!ProcessExists(_serverProcessId))
             {
-                _logger.Info($"Server process {_serverProcessId} terminated successfully after graceful shutdown");
+                _log.Info($"Server process {_serverProcessId} stopped gracefully.");
                 _isRunning = false;
                 return true;
             }
@@ -223,7 +223,7 @@ public class MineCraftServerService : IMineCraftServerService
             elapsedMs += checkIntervalMs;
         }
 
-        _logger.Warn($"Server process {_serverProcessId} did not terminate within {maxWaitMs}ms after graceful shutdown attempt");
+        _log.Warn($"Server process {_serverProcessId} did not terminate within {maxWaitMs}ms after graceful shutdown attempt");
         return false;
     }
 
@@ -234,24 +234,24 @@ public class MineCraftServerService : IMineCraftServerService
     {
         if (!IsRunning)
         {
-            _logger.Warn("Minecraft server is not running.");
+            _log.Warn("Minecraft server is not running.");
             return true;
         }
 
         if (_serverProcess is null)
         {
-            _logger.Warn("Server process is null");
+            _log.Warn("Server process is null");
             _isRunning = false;
             return false;
         }
 
         var processId = _serverProcess.Id;
-        _logger.Info($"Stopping Minecraft server (PID: {processId})");
+        _log.Info($"Stopping Minecraft server (PID: {processId})");
 
         // Force kill the process
         if (!_serverProcess.HasExited)
         {
-            _logger.Info("Force killing Bedrock server process");
+            _log.Info("Force killing Bedrock server process");
             _serverProcess.Kill(true); // Kill the process and all child processes
             
             // Wait for process to exit using configured stop timeout
@@ -264,12 +264,12 @@ public class MineCraftServerService : IMineCraftServerService
         if (!ProcessExists(processId))
         {
             _isRunning = false;
-            _logger.Info("Minecraft server stopped successfully");
+            _log.Info("Minecraft server stopped successfully");
             return true;
         }
         else
         {
-            _logger.Error("Failed to terminate server process");
+            _log.Error("Failed to terminate server process");
             _isRunning = false;
             return false;
         }
@@ -312,7 +312,7 @@ public class MineCraftServerService : IMineCraftServerService
             var line = await _serverProcess.StandardOutput.ReadLineAsync(cts.Token);
             if (!string.IsNullOrEmpty(line))
             {
-                _logger.Info($"{line}");
+                _log.Info($"{line}");
                 
                 // Extract version from server output
                 if (line.Contains("Version:"))
@@ -330,7 +330,7 @@ public class MineCraftServerService : IMineCraftServerService
         {
             if (_serverProcess.ExitCode != 0)
             {
-                _logger.Warn($"Server exited with code: {_serverProcess.ExitCode}");
+                _log.Warn($"Server exited with code: {_serverProcess.ExitCode}");
             }
             _isRunning = false;
         }
@@ -358,7 +358,7 @@ public class MineCraftServerService : IMineCraftServerService
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to extract version from output");
+            _log.Error(ex, "Failed to extract version from output");
         }
     }
 

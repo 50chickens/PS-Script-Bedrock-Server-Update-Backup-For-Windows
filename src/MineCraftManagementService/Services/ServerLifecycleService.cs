@@ -10,7 +10,7 @@ namespace MineCraftManagementService.Services;
 /// </summary>
 public class ServerLifecycleService : IServerLifecycleService
 {
-    private readonly ILog<ServerLifecycleService> _logger;
+    private readonly ILog<ServerLifecycleService> _log;
     private readonly IMineCraftServerService _minecraftService;
     private readonly IPreFlightCheckService _preFlightCheckService;
     private readonly IServerStatusProvider _statusProvider;
@@ -20,7 +20,7 @@ public class ServerLifecycleService : IServerLifecycleService
     private readonly MineCraftServerOptions _options;
 
     public ServerLifecycleService(
-        ILog<ServerLifecycleService> logger,
+        ILog<ServerLifecycleService> log,
         IMineCraftServerService minecraftService,
         IPreFlightCheckService preFlightCheckService,
         
@@ -30,7 +30,7 @@ public class ServerLifecycleService : IServerLifecycleService
         IServerAutoStartService autoStartService,
         MineCraftServerOptions options)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         _minecraftService = minecraftService ?? throw new ArgumentNullException(nameof(minecraftService));
         _preFlightCheckService = preFlightCheckService ?? throw new ArgumentNullException(nameof(preFlightCheckService));
         _statusProvider = statusProvider ?? throw new ArgumentNullException(nameof(statusProvider));
@@ -65,7 +65,7 @@ public class ServerLifecycleService : IServerLifecycleService
             try
             {
                 var lifecycleState = await _statusProvider.GetLifeCycleStateAsync();
-                _logger.Trace($"Server lifecycle status: {lifecycleState.LifecycleStatus}");
+                _log.Trace($"Server lifecycle status: {lifecycleState.LifecycleStatus}");
 
                 // Process server state
                 switch (lifecycleState.LifecycleStatus)
@@ -96,11 +96,11 @@ public class ServerLifecycleService : IServerLifecycleService
                         break;
 
                     case MineCraftServerStatus.Error:
-                        _logger.Error("Server encountered an error state");
+                        _log.Error("Server encountered an error state");
                         break;
 
                     default:
-                        _logger.Warn($"Unknown server lifecycle status: {lifecycleState.LifecycleStatus}");
+                        _log.Warn($"Unknown server lifecycle status: {lifecycleState.LifecycleStatus}");
                         break;
                 }
 
@@ -108,12 +108,12 @@ public class ServerLifecycleService : IServerLifecycleService
             }
             catch (OperationCanceledException)
             {
-                _logger.Info("Server lifecycle management cancelled");
+                _log.Info("Server lifecycle management cancelled");
                 break;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error during server lifecycle management");
+                _log.Error(ex, "Error during server lifecycle management");
             }
         }
     }
@@ -122,29 +122,33 @@ public class ServerLifecycleService : IServerLifecycleService
     {
         if (!_minecraftService.IsRunning)
         {
-            _logger.Info("Starting Minecraft server");
+            _log.Info("Starting Minecraft server");
             var success = await _minecraftService.StartServerAsync();
             if (!success)
             {
-                _logger.Error("Failed to start Minecraft server");
+                _log.Error("Failed to start Minecraft server");
             }
         }
     }
 
     private async Task HandleStopServerAsync()
     {
-        _logger.Info("Stopping server...");
-        
+        _log.Info("Stopping server...");
+        if (!_minecraftService.IsRunning)
+        {
+            _log.Info("Server is already stopped.");
+            return;
+        }
         var wasShutdownGracefully = await _minecraftService.TryGracefulShutdownAsync();
         if (!wasShutdownGracefully)
         {
-            _logger.Warn("Graceful shutdown failed, forcing server stop");
+            _log.Warn("Graceful shutdown failed, forcing server stop");
             await _minecraftService.ForceStopServerAsync();
         }
-
+        _log.Info("Server stopped successfully.");   
         // Allow ports to be released before attempting to start server again
         // This prevents "port already in use" errors on quick restart cycles
-        _logger.Debug("Waiting for ports to be released after server shutdown...");
+        _log.Debug("Waiting for ports to be released after server shutdown...");
         await Task.Delay(2000);
     }
     
@@ -155,18 +159,18 @@ public class ServerLifecycleService : IServerLifecycleService
             throw new InvalidOperationException("Patch version cannot be null or empty when applying patch");
         }
 
-        _logger.Info($"Applying server update patch to version {patchVersion}...");
+        _log.Info($"Applying server update patch to version {patchVersion}...");
         
         // Server should already be stopped at this point, no need to shutdown again
         // ShouldBePatched already confirmed an update is available, so no need to check again
         
         // Create backup after successful server stop
         var backupPath = _backupService.CreateBackupZipFromServerFolder();
-        _logger.Info($"Backed up current installation to {backupPath}");
+        _log.Info($"Backed up current installation to {backupPath}");
         
         // Apply the patch with the specific version
         await _patchService.ApplyUpdateAsync(patchVersion, cancellationToken);
-        _logger.Info("Patch applied successfully.");
+        _log.Info("Patch applied successfully.");
     }
 
     private async Task HandleServerMonitoringAsync(CancellationToken cancellationToken)
@@ -182,7 +186,7 @@ public class ServerLifecycleService : IServerLifecycleService
     {
         // Server is idle: either EnableAutoStart is disabled or auto-shutdown has exceeded.
         // In this state, we do nothing and wait for EnableAutoStart to be re-enabled or manual intervention.
-        _logger.Trace("Server is idle (auto-start disabled or awaiting manual intervention)");
+        _log.Trace("Server is idle (auto-start disabled or awaiting manual intervention)");
         await Task.CompletedTask;
     }
 
@@ -211,8 +215,9 @@ public class ServerLifecycleService : IServerLifecycleService
         // If server still running after timeout, force stop
         if (_minecraftService.IsRunning)
         {
-            _logger.Warn("Server did not stop within timeout, forcing stop");
+            _log.Warn("Server did not stop within timeout, forcing stop");
             await _minecraftService.ForceStopServerAsync();
         }
+        _log.Info("Server shutdown process completed.");
     }
 }

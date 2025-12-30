@@ -5,10 +5,10 @@ namespace MineCraftManagementService.Logging
 {
     public class NLogLogger : AbstractLogger
     {
-        private readonly NLog.Logger _logger;
-        public NLogLogger(NLog.Logger logger)
+        private readonly NLog.Logger _log;
+        public NLogLogger(NLog.Logger log)
         {
-            _logger = logger;
+            _log = log;
         }
 
         public override bool IsTraceEnabled => true;
@@ -30,7 +30,7 @@ namespace MineCraftManagementService.Logging
                 Message = message?.ToString() ?? string.Empty,
                 Exception = exception
             };
-            _logger.Log(logEventInfo);
+            _log.Log(logEventInfo);
         }
     }
 }
