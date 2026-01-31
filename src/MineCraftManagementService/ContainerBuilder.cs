@@ -83,6 +83,15 @@ namespace MineCraftManagementService
             builder.Services.AddSingleton<IMineCraftServerService, MineCraftServerService>();
 
             // Register update-related services
+            
+            // Register HttpClient for API communication
+            builder.Services.AddHttpClient<IMineCraftApiClient, MineCraftApiClient>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<MineCraftServerOptions>();
+                client.Timeout = TimeSpan.FromSeconds(30);
+                client.BaseAddress = new Uri(options.MineCraftVersionApiUrl);
+            });
+            
             builder.Services.AddSingleton<IMineCraftVersionService, MineCraftVersionService>();
             builder.Services.AddSingleton<IMineCraftUpdateDownloadService, MineCraftUpdateDownloadService>();
             builder.Services.AddSingleton<IMineCraftBackupService, MineCraftBackupService>();

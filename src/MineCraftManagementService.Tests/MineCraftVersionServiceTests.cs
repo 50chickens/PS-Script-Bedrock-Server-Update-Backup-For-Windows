@@ -10,7 +10,7 @@ namespace MineCraftManagementService.Tests;
 public class MineCraftVersionServiceTests
 {
     private ILog<MineCraftVersionService> _log = null!;
-    private MineCraftServerOptions _options = null!;
+    private IMineCraftApiClient _apiClient = null!;
     private MineCraftVersionService _service = null!;
 
     [SetUp]
@@ -22,8 +22,8 @@ public class MineCraftVersionServiceTests
         logBuilder.Build();
 
         _log = LogManager.GetLogger<MineCraftVersionService>();
-        _options = TestUtils.CreateOptions();
-        _service = new MineCraftVersionService(_log, _options);
+        _apiClient = Substitute.For<IMineCraftApiClient>();
+        _service = new MineCraftVersionService(_log, _apiClient);
     }
 
     /// <summary>
@@ -34,22 +34,34 @@ public class MineCraftVersionServiceTests
     [Test]
     public void Test_That_Constructor_Throws_When_Log_IsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => new MineCraftVersionService(null!, _options));
+        Assert.Throws<ArgumentNullException>(() => new MineCraftVersionService(null!, _apiClient));
     }
 
     /// <summary>
-    /// Test: Constructor throws ArgumentNullException when options is null.
+    /// Test: Constructor throws ArgumentNullException when API client is null.
     /// Intent: Verify dependency validation.
     /// Importance: Error handling - prevents null reference issues.
     /// </summary>
     [Test]
-    public void Test_That_Constructor_Throws_When_Options_IsNull()
+    public void Test_That_Constructor_Throws_When_ApiClient_IsNull()
     {
         Assert.Throws<ArgumentNullException>(() => new MineCraftVersionService(_log, null!));
     }
 
-    // Note: GetLatestVersionAsync makes actual HTTP calls and cannot be easily tested
-    // without mocking HttpClient. This will be addressed in Part 3 when we refactor
-    // to use IHttpClientFactory and create IMineCraftApiClient interface.
-    // Integration tests or manual testing should verify API communication.
+    /// <summary>
+    /// Test: GetLatestVersionAsync delegates to API client.
+    /// Intent: Verify service delegates to API client correctly.
+    /// Importance: Integration - ensures proper use of abstraction.
+    /// </summary>
+    [Test]
+    public async Task Test_That_GetLatestVersionAsync_Delegates_To_ApiClient()
+    {
+        var expectedResult = new MineCraftServerDownload { Version = "1.0.0", Url = "http://example.com" };
+        _apiClient.GetLatestVersionAsync(Arg.Any<CancellationToken>()).Returns(expectedResult);
+
+        var result = await _service.GetLatestVersionAsync(CancellationToken.None);
+
+        Assert.That(result, Is.EqualTo(expectedResult));
+        await _apiClient.Received(1).GetLatestVersionAsync(Arg.Any<CancellationToken>());
+    }
 }
