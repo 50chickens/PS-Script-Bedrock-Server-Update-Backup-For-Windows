@@ -1,0 +1,31 @@
+{
+  "solutionFile": "MineCraftManagementService.sln",
+  "validate": {
+    "enabled": true
+  },
+  "restore": {
+    "enabled": true,
+    "verbosity": "minimal"
+  },
+  "codeFormat": {
+    "enabled": true,
+    "verbosity": "normal",
+    "failOnError": false
+  },
+  "build": {
+    "enabled": true,
+    "configuration": "Release",
+    "verbosity": "minimal",
+    "warningsAsErrors": true
+  },
+  "test": {
+    "enabled": true,
+    "configuration": "Release",
+    "verbosity": "normal",
+    "collectCoverage": true
+  },
+  "coverage": {
+    "enabled": true,
+    "failOnError": false
+  }
+}
