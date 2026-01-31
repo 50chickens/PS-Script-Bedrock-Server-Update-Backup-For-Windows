@@ -277,6 +277,13 @@ public class MineCraftServerService : IMineCraftServerService
         }
         catch (ArgumentException)
         {
+            // Process doesn't exist - this is an expected condition, not an error
+            _log.Debug($"Process {processId} does not exist");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, $"Unexpected error checking if process {processId} exists");
             return false;
         }
     }

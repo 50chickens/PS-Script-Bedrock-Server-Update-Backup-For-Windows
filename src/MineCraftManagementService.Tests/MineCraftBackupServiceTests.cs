@@ -47,7 +47,12 @@ public class MineCraftBackupServiceTests
             if (Directory.Exists(_options.BackupFolderName))
                 Directory.Delete(_options.BackupFolderName, true);
         }
-        catch { /* Ignore cleanup errors */ }
+        catch (Exception ex)
+        {
+            // Test cleanup failures are non-critical but should be logged
+            TestContext.WriteLine($"Test cleanup warning: {ex.Message}");
+            // Don't fail the test due to cleanup issues
+        }
     }
 
     /// <summary>

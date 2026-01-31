@@ -91,6 +91,12 @@ namespace MineCraftManagementService
                 client.Timeout = TimeSpan.FromSeconds(30);
                 client.BaseAddress = new Uri(options.MineCraftVersionApiUrl);
             });
+
+            // Register HttpClient for general HTTP operations (downloads, etc.)
+            builder.Services.AddHttpClient<IMineCraftHttpClient, MineCraftHttpClient>(client =>
+            {
+                client.Timeout = TimeSpan.FromMinutes(10); // Generous timeout for downloads
+            });
             
             builder.Services.AddSingleton<IMineCraftVersionService, MineCraftVersionService>();
             builder.Services.AddSingleton<IMineCraftUpdateDownloadService, MineCraftUpdateDownloadService>();
