@@ -153,7 +153,7 @@ function Invoke-CodeCoverage {
 # Main execution
 try {
     Write-Host ""
-    Write-Host "=== MineCraft Management Service Build & Test ===" -ForegroundColor Cyan
+    Write-Host "=== Minecraft Management Service Build & Test ===" -ForegroundColor Cyan
     Write-Host ""
     
     $solutionFile = $config.solutionFile
