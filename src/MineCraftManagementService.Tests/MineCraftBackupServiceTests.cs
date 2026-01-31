@@ -50,7 +50,7 @@ public class MineCraftBackupServiceTests
         catch (Exception ex)
         {
             // Test cleanup failures are non-critical but should be logged
-            TestContext.WriteLine($"Test cleanup warning: {ex.Message}");
+            TestContext.Out.WriteLine($"Test cleanup warning: {ex.Message}");
             // Don't fail the test due to cleanup issues
         }
     }

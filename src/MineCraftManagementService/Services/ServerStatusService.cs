@@ -57,7 +57,7 @@ public partial class ServerStatusService : IServerStatusService
             {
                 var patchVersion = _pendingPatchVersion;
                 _pendingPatchVersion = null;  // Clear pending patch
-                _log.Debug($"Determined lifecycle status: ShouldBePatched (version {patchVersion})");
+                _log.Trace($"Determined lifecycle status: ShouldBePatched (version {patchVersion})");
                 _mineCraftSchedulerService.SetAutoShutdownTime(DateTime.MinValue); // Clear auto-shutdown time until server restarts
                 _mineCraftSchedulerService.SetUpdateCheckTime(DateTime.MinValue); // Clear update check time until server restarts
                 return new MineCraftServerLifecycleStatus
@@ -69,13 +69,13 @@ public partial class ServerStatusService : IServerStatusService
 
             if (ShouldBeStarted())
             {
-                _log.Debug("Determined lifecycle status: ShouldBeStarted");
+                _log.Trace("Determined lifecycle status: ShouldBeStarted");
                 return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStarted };
             }
 
             if (ShouldBeIdle())
             {
-                _log.Debug("Determined lifecycle status: ShouldBeIdle");
+                _log.Trace("Determined lifecycle status: ShouldBeIdle");
                 // Clear scheduled times when server becomes idle (stopped and not restarting)
                 _mineCraftSchedulerService.SetAutoShutdownTime(DateTime.MinValue);
                 _mineCraftSchedulerService.SetUpdateCheckTime(DateTime.MinValue);
@@ -85,13 +85,13 @@ public partial class ServerStatusService : IServerStatusService
             // Only check ShouldBeStopped if server is actually running (avoids repeated stop attempts)
             if (await ShouldBeStopped())
             {
-                _log.Debug("Determined lifecycle status: ShouldBeStopped");
+                _log.Trace("Determined lifecycle status: ShouldBeStopped");
                 return new MineCraftServerLifecycleStatus { LifecycleStatus = MineCraftServerStatus.ShouldBeStopped };
             }
 
             if (ShouldBeMonitored())
             {
-                _log.Debug("Determined lifecycle status: ShouldBeMonitored");
+                _log.Trace("Determined lifecycle status: ShouldBeMonitored");
                 if (_mineCraftSchedulerService.GetAutoShutdownTime() == DateTime.MinValue && _autoShutdownAfterSeconds > 0)
                 {
                     // If auto-shutdown time was never set (e.g. server started before service), set it now
@@ -121,7 +121,7 @@ public partial class ServerStatusService : IServerStatusService
     private async Task<bool> ShouldBeStopped()
     {
         var (shouldStop, reason) = await CheckIfServerShouldStop();
-        _log.Debug($"ShouldBeStopped evaluated to {shouldStop} due to: {reason}");
+        _log.Trace($"ShouldBeStopped evaluated to {shouldStop} due to: {reason}");
         return shouldStop;
     }
 
@@ -206,7 +206,7 @@ public partial class ServerStatusService : IServerStatusService
             _mineCraftSchedulerService.SetUpdateCheckTime(now.AddSeconds(_updateCheckIntervalsSeconds.FirstOrDefault())); //reset the next update check time so that even if an exception occurs.
             _log.Info($"Rescheduled next update check for {_mineCraftSchedulerService.GetUpdateCheckTime():yyyy-MM-dd HH:mm:ss.fff}");
             var (updateAvailable, message, newVersion) = await _updateCheckService.NewVersionIsAvailable(_minecraftService.CurrentVersion);
-            _log.Debug($"Update check complete. Available: {updateAvailable}, Message: {message}, NewVersion: {newVersion}");
+            _log.Trace($"Update check complete. Available: {updateAvailable}, Message: {message}, NewVersion: {newVersion}");
 
             if (!updateAvailable)
             {
@@ -238,7 +238,7 @@ public partial class ServerStatusService : IServerStatusService
                 var remainingSeconds = (int)(autoShutdownTime - now).TotalSeconds;
                 if (remainingSeconds > 0)
                 {
-                    _log.Debug($"Auto-shutdown in {remainingSeconds} seconds.");
+                    _log.Trace($"Auto-shutdown in {remainingSeconds} seconds.");
                 }
             }
         }
@@ -252,11 +252,11 @@ public partial class ServerStatusService : IServerStatusService
                 var remainingSeconds = (int)(updateCheckTime - now).TotalSeconds;
                 if (remainingSeconds > 0)
                 {
-                    _log.Debug($"Next update check in {remainingSeconds} seconds.");
+                    _log.Trace($"Next update check in {remainingSeconds} seconds.");
                 }
                 else
                 {
-                    _log.Info($"Update check is due now.");
+                    _log.Debug($"Update check is due now.");
                 }
             }
         }
