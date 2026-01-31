@@ -29,41 +29,99 @@ public class MineCraftBackupService : IMineCraftBackupService
     /// </summary>
     public string CreateBackupZipFromServerFolder()
     {
-
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        // Use UTC time for consistent timestamps across time zones
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
         var backupDir = _options.BackupFolderName;
-        if (!Directory.Exists(backupDir))
+        
+        try
         {
-            Directory.CreateDirectory(backupDir);
+            if (!Directory.Exists(backupDir))
+            {
+                Directory.CreateDirectory(backupDir);
+            }
+
+            var backupPath = Path.Combine(backupDir, $"minecraft_backup_{timestamp}_UTC.zip");
+            _log.Info($"Creating backup at {backupPath}");
+
+            if (_options.BackupOnlyUserData)
+            {
+                // Backup only user data (worlds, logs, backups folders)
+                var tempBackupDir = Path.Combine(backupDir, $"temp_backup_{timestamp}");
+                
+                try
+                {
+                    // Only copy the specified folders (not exclude them)
+                    CopySelectiveFolders(_serverPath, tempBackupDir, new[] { "worlds", "logs", "backups" });
+                    System.IO.Compression.ZipFile.CreateFromDirectory(tempBackupDir, backupPath);
+                }
+                finally
+                {
+                    // Cleanup temp directory even if backup fails
+                    if (Directory.Exists(tempBackupDir))
+                    {
+                        try
+                        {
+                            Directory.Delete(tempBackupDir, true);
+                        }
+                        catch (Exception ex)
+                        {
+                            _log.Warn($"Failed to clean up temporary backup directory: {tempBackupDir}. Error: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Backup entire server folder
+                System.IO.Compression.ZipFile.CreateFromDirectory(_serverPath, backupPath);
+            }
+
+            _log.Info($"Backup created successfully: {Path.GetFileName(backupPath)}");
+            return backupPath;
         }
-
-        var backupPath = Path.Combine(backupDir, $"minecraft_backup_{timestamp}.zip");
-        _log.Info($"Creating backup of server at {backupPath}...");
-
-        if (_options.BackupOnlyUserData)
+        catch (IOException ex)
         {
-            // Backup only user data (selective folders)
-            _log.Debug("Backing up only user data (worlds, logs, backups folders)");
-            var tempBackupDir = Path.Combine(backupDir, $"temp_backup_{timestamp}");
-            CopyDirectory(_serverPath, tempBackupDir, new[] { "worlds", "logs", "backups" });
-            System.IO.Compression.ZipFile.CreateFromDirectory(tempBackupDir, backupPath);
-            Directory.Delete(tempBackupDir, true);
+            _log.Error(ex, $"I/O error creating backup. Server path: {_serverPath}, Backup dir: {backupDir}");
+            throw;
         }
-        else
+        catch (UnauthorizedAccessException ex)
         {
-            // Backup entire server folder
-            _log.Debug("Backing up entire server folder");
-            System.IO.Compression.ZipFile.CreateFromDirectory(_serverPath, backupPath);
+            _log.Error(ex, $"Access denied creating backup. Server path: {_serverPath}, Backup dir: {backupDir}");
+            throw;
         }
-
-        _log.Info("Backup created successfully");
-        return backupPath;
     }
 
     /// <summary>
-    /// Copies a directory recursively, excluding certain folders.
+    /// Copies only specified folders from source to destination recursively.
     /// </summary>
-    private void CopyDirectory(string source, string destination, string[] excludeDirs)
+    /// <param name="source">Source directory path.</param>
+    /// <param name="destination">Destination directory path.</param>
+    /// <param name="includeFolders">Array of folder names to include in the copy.</param>
+    private void CopySelectiveFolders(string source, string destination, string[] includeFolders)
+    {
+        var sourceDir = new DirectoryInfo(source);
+        if (!sourceDir.Exists)
+            return;
+
+        if (!Directory.Exists(destination))
+            Directory.CreateDirectory(destination);
+
+        // Copy only the specified subdirectories
+        foreach (var folderName in includeFolders)
+        {
+            var sourceFolderPath = Path.Combine(source, folderName);
+            if (Directory.Exists(sourceFolderPath))
+            {
+                var destFolderPath = Path.Combine(destination, folderName);
+                CopyDirectoryRecursive(sourceFolderPath, destFolderPath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Copies a directory and all its contents recursively.
+    /// </summary>
+    private void CopyDirectoryRecursive(string source, string destination)
     {
         var sourceDir = new DirectoryInfo(source);
         if (!sourceDir.Exists)
@@ -79,11 +137,8 @@ public class MineCraftBackupService : IMineCraftBackupService
 
         foreach (var dir in sourceDir.GetDirectories())
         {
-            if (excludeDirs.Contains(dir.Name))
-                continue;
-
             var nextDestination = Path.Combine(destination, dir.Name);
-            CopyDirectory(dir.FullName, nextDestination, excludeDirs);
+            CopyDirectoryRecursive(dir.FullName, nextDestination);
         }
     }
 

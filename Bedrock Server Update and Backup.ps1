@@ -266,8 +266,6 @@ else
 
 	# START SERVER
 	$exePath = "$gameDir\$bedServerExe"
-    $logFile1 = $date._output.txt
-    $logFile2 = $date._errors.txt
 	if (-not (Get-Process -Name ($bedServerExe -replace '.exe','') -ErrorAction SilentlyContinue)) { 
 		Write-Host "STARTING SERVER..."
         start-process $exePath

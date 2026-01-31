@@ -4,6 +4,6 @@ namespace MineCraftManagementService.Interfaces;
 
 public interface IMineCraftVersionService
 {
-    Task<MineCraftServerDownload> GetLatestVersionAsync(CancellationToken cancellationToken);
+    Task<MineCraftServerDownload?> GetLatestVersionAsync(CancellationToken cancellationToken);
 
 }

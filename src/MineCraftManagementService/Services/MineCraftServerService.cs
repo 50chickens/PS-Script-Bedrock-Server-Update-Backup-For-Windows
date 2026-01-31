@@ -26,6 +26,7 @@ public class MineCraftServerService : IMineCraftServerService
         }
     }
     private bool _isRunning;
+    private readonly object _processLock = new object();
 
     public bool IsRunning
     {
@@ -104,50 +105,56 @@ public class MineCraftServerService : IMineCraftServerService
 
         return IsRunning;
     }
-    private bool CheckForProcessByName()
+    /// <summary>
+    /// Checks for the Minecraft server process by ID first, then by name if ID check fails.
+    /// This method combines both checks into a single atomic operation to avoid race conditions.
+    /// </summary>
+    /// <returns>True if process was found and attached, false otherwise.</returns>
+    private bool CheckForProcess()
     {
-        var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(_options.ServerExecutableName));
-        if (processes.Length > 0)
+        lock (_processLock)
         {
-            var process = processes.Where(p => !p.HasExited).FirstOrDefault();
-            if (process != null)
+            int processId = _serverProcessId;
+            
+            // First, try to find by stored process ID
+            if (processId >= 0 && ProcessExists(processId))
             {
-                _log.Info($"Found process with name {_options.ServerExecutableName} and PID: {process.Id}");
-                _serverProcess = process;
-                _isRunning = true;
-                return true;
+                try
+                {
+                    var process = Process.GetProcessById(processId);
+                    if (!process.HasExited)
+                    {
+                        _log.Info($"Found process with stored process Id: {processId}");
+                        _serverProcess = process;
+                        _isRunning = true;
+                        return true;
+                    }
+                }
+                catch (ArgumentException)
+                {
+                    // Process no longer exists
+                    _log.Debug("Process with stored ID no longer exists");
+                }
             }
-        }
+            
+            // If process ID check failed, try finding by process name
+            var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(_options.ServerExecutableName));
+            if (processes.Length > 0)
+            {
+                var process = processes.Where(p => !p.HasExited).FirstOrDefault();
+                if (process != null)
+                {
+                    _log.Info($"Found process with name {_options.ServerExecutableName} and PID: {process.Id}");
+                    _serverProcess = process;
+                    _isRunning = true;
+                    return true;
+                }
+            }
 
-        _log.Info($"No process found with name {_options.ServerExecutableName}");
-        return false;
-    }
-    private bool CheckForProcessbyProcessId()
-    {
-        int processId = _serverProcessId;
-        if (processId >= 0)
-        {
-            var processExists = ProcessExists(processId);
-            if (processExists)
-            {
-                var process = Process.GetProcessById(processId);
-                _log.Info($"Found process with stored process Id: {processId}");
-                _serverProcess = process;
-                _isRunning = true;
-                return true;
-            }
-            else
-            {
-                _log.Info("No process found with the stored process Id.");
-                return false;
-            }
-        }
-        else
-        {
-            _log.Info("Stored process Id is not valid.");
+            _log.Info("Could not find Minecraft server process by either ID or name.");
             _serverProcess = null;
+            _isRunning = false;
             return false;
-
         }
     }
     /// <summary>
@@ -165,23 +172,15 @@ public class MineCraftServerService : IMineCraftServerService
         {
             _log.Info("Stored process reference invalid, attempting to locate process...");
 
-            bool foundProcessByProcessId = CheckForProcessbyProcessId();
-            if (foundProcessByProcessId)
+            bool foundProcess = CheckForProcess();
+            if (!foundProcess)
             {
-                _log.Info("Found server process by stored process Id.");
+                _log.Info("Could not find Minecraft server process.");
+                return true;
             }
             else
             {
-                bool foundProcessByName = CheckForProcessByName();
-                if (foundProcessByName)
-                {
-                    _log.Info("Process id was not valid, but found server process by executable name.");
-                }
-                else
-                {
-                    _log.Info("Could not find Minecraft server process by either name, or id.");
-                    return true;
-                }
+                _log.Info("Found server process and attached to it.");
             }
         }
 
