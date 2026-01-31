@@ -37,16 +37,14 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
     /// </summary>
     public async Task ApplyUpdateAsync(string version, CancellationToken cancellationToken)
     {
-        _log.Info($"Downloading Minecraft Bedrock server version {version}...");
+        _log.Info($"Applying Minecraft Bedrock server update to version {version}");
 
         // First, get the JSON metadata and extract the Windows download URL
         var downloadUrl = await GetWindowsDownloadUrlAsync(_options.MineCraftVersionApiUrl, cancellationToken);
         if (string.IsNullOrEmpty(downloadUrl))
         {
-            throw new InvalidOperationException("Could not find Windows download URL in API response");
+            throw new InvalidOperationException($"Could not find Windows download URL in API response for version {version}");
         }
-
-        _log.Info($"Download URL: {downloadUrl}");
 
         // Build the final filename with version suffix
         var downloadFolder = _options.DownloadFolderName;
@@ -64,20 +62,16 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
         // Remove existing file if configured
         if (_options.OverwriteExistingDownloadFile && File.Exists(downloadFileName))
         {
-            _log.Info($"Removing existing download file: {downloadFileName}");
             File.Delete(downloadFileName);
         }
 
         // Download the actual ZIP file
         await DownloadFileAsync(downloadUrl, downloadFileName, cancellationToken);
 
-        _log.Info($"Update downloaded to {downloadFileName}");
-
         // Extract update over existing installation
         UpdateServerFromZipFile(downloadFileName);
-        _log.Info("Update files extracted to server directory");
-
-        _log.Info("Update applied successfully");
+        
+        _log.Info($"Update to version {version} applied successfully");
     }
 
     /// <summary>
@@ -104,18 +98,44 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
                             typeElement.GetString() == "serverBedrockWindows" &&
                             link.TryGetProperty("downloadUrl", out var urlElement))
                         {
-                            return urlElement.GetString();
+                            var downloadUrl = urlElement.GetString();
+                            if (!string.IsNullOrEmpty(downloadUrl))
+                            {
+                                return downloadUrl;
+                            }
                         }
                     }
                 }
+
+                _log.Error($"Windows download URL not found in API response. Metadata URL: {metadataUrl}");
+                return null;
             }
+        }
+        catch (JsonException ex)
+        {
+            _log.Error(ex, $"Failed to parse JSON from download metadata API. URL: {metadataUrl}");
+            return null;
+        }
+        catch (HttpRequestException ex)
+        {
+            _log.Error(ex, $"HTTP request failed when fetching download metadata. URL: {metadataUrl}");
+            return null;
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _log.Error(ex, $"Request timed out after {_options.DownloadTimeoutSeconds}s when fetching metadata. URL: {metadataUrl}");
+            return null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _log.Warn("Metadata download was cancelled");
+            throw;
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Failed to parse download metadata from API");
+            _log.Error(ex, $"Unexpected error fetching download metadata. URL: {metadataUrl}");
+            return null;
         }
-
-        return null;
     }
 
     /// <summary>
@@ -123,16 +143,34 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
     /// </summary>
     private async Task DownloadFileAsync(string url, string filePath, CancellationToken cancellationToken)
     {
-        using (var httpClient = new HttpClient())
+        try
         {
-            httpClient.Timeout = TimeSpan.FromSeconds(_options.DownloadTimeoutSeconds);
-            using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            using (var httpClient = new HttpClient())
+            {
+                httpClient.Timeout = TimeSpan.FromSeconds(_options.DownloadTimeoutSeconds);
+                using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                response.EnsureSuccessStatusCode();
 
-            using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var fileStream = File.Create(filePath);
-            // Use larger buffer for faster copying
-            await contentStream.CopyToAsync(fileStream, 1024 * 1024, cancellationToken);  // 1MB buffer
+                using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using var fileStream = File.Create(filePath);
+                // Use larger buffer for faster copying
+                await contentStream.CopyToAsync(fileStream, 1024 * 1024, cancellationToken);  // 1MB buffer
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _log.Error(ex, $"HTTP request failed downloading file. URL: {url}, Destination: {filePath}");
+            throw;
+        }
+        catch (IOException ex)
+        {
+            _log.Error(ex, $"I/O error writing downloaded file. Path: {filePath}");
+            throw;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _log.Warn($"File download cancelled. URL: {url}");
+            throw;
         }
     }
 
@@ -143,11 +181,22 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
     {
         try
         {
+            _log.Info($"Extracting update from {Path.GetFileName(zipPath)} to server directory");
             ZipFile.ExtractToDirectory(zipPath, _serverPath, overwriteFiles: true);
         }
         catch (InvalidDataException ex)
         {
-            _log.Error(ex, "ZIP file is corrupted or incomplete. This may indicate a failed download.");
+            _log.Error(ex, $"ZIP file is corrupted or incomplete. Path: {zipPath}. This may indicate a failed download.");
+            throw;
+        }
+        catch (IOException ex)
+        {
+            _log.Error(ex, $"I/O error extracting ZIP file. Source: {zipPath}, Destination: {_serverPath}");
+            throw;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _log.Error(ex, $"Access denied extracting ZIP file. Destination: {_serverPath}");
             throw;
         }
     }

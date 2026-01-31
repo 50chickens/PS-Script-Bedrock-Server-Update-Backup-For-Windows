@@ -29,35 +29,65 @@ public class MineCraftBackupService : IMineCraftBackupService
     /// </summary>
     public string CreateBackupZipFromServerFolder()
     {
-
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        // Use UTC time for consistent timestamps across time zones
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
         var backupDir = _options.BackupFolderName;
-        if (!Directory.Exists(backupDir))
+        
+        try
         {
-            Directory.CreateDirectory(backupDir);
+            if (!Directory.Exists(backupDir))
+            {
+                Directory.CreateDirectory(backupDir);
+            }
+
+            var backupPath = Path.Combine(backupDir, $"minecraft_backup_{timestamp}_UTC.zip");
+            _log.Info($"Creating backup at {backupPath}");
+
+            if (_options.BackupOnlyUserData)
+            {
+                // Backup only user data (selective folders)
+                var tempBackupDir = Path.Combine(backupDir, $"temp_backup_{timestamp}");
+                
+                try
+                {
+                    CopyDirectory(_serverPath, tempBackupDir, new[] { "worlds", "logs", "backups" });
+                    System.IO.Compression.ZipFile.CreateFromDirectory(tempBackupDir, backupPath);
+                }
+                finally
+                {
+                    // Cleanup temp directory even if backup fails
+                    if (Directory.Exists(tempBackupDir))
+                    {
+                        try
+                        {
+                            Directory.Delete(tempBackupDir, true);
+                        }
+                        catch (Exception ex)
+                        {
+                            _log.Warn($"Failed to clean up temporary backup directory: {tempBackupDir}. Error: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Backup entire server folder
+                System.IO.Compression.ZipFile.CreateFromDirectory(_serverPath, backupPath);
+            }
+
+            _log.Info($"Backup created successfully: {Path.GetFileName(backupPath)}");
+            return backupPath;
         }
-
-        var backupPath = Path.Combine(backupDir, $"minecraft_backup_{timestamp}.zip");
-        _log.Info($"Creating backup of server at {backupPath}...");
-
-        if (_options.BackupOnlyUserData)
+        catch (IOException ex)
         {
-            // Backup only user data (selective folders)
-            _log.Debug("Backing up only user data (worlds, logs, backups folders)");
-            var tempBackupDir = Path.Combine(backupDir, $"temp_backup_{timestamp}");
-            CopyDirectory(_serverPath, tempBackupDir, new[] { "worlds", "logs", "backups" });
-            System.IO.Compression.ZipFile.CreateFromDirectory(tempBackupDir, backupPath);
-            Directory.Delete(tempBackupDir, true);
+            _log.Error(ex, $"I/O error creating backup. Server path: {_serverPath}, Backup dir: {backupDir}");
+            throw;
         }
-        else
+        catch (UnauthorizedAccessException ex)
         {
-            // Backup entire server folder
-            _log.Debug("Backing up entire server folder");
-            System.IO.Compression.ZipFile.CreateFromDirectory(_serverPath, backupPath);
+            _log.Error(ex, $"Access denied creating backup. Server path: {_serverPath}, Backup dir: {backupDir}");
+            throw;
         }
-
-        _log.Info("Backup created successfully");
-        return backupPath;
     }
 
     /// <summary>

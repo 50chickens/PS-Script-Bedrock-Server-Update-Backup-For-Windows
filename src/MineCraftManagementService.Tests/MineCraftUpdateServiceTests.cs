@@ -164,7 +164,7 @@ public class MineCraftUpdateServiceTests
     {
         _minecraftService.ServerStartTime.Returns(DateTime.Now);
         _versionService.GetLatestVersionAsync(Arg.Any<CancellationToken>())
-            .Returns<MineCraftServerDownload>(x => throw new Exception("Test exception"));
+            .Returns<MineCraftServerDownload?>(x => throw new Exception("Test exception"));
 
         var result = await _service.NewVersionIsAvailable("1.0.0");
 
