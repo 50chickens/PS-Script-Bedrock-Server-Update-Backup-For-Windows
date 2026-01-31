@@ -45,12 +45,13 @@ public class MineCraftBackupService : IMineCraftBackupService
 
             if (_options.BackupOnlyUserData)
             {
-                // Backup only user data (selective folders)
+                // Backup only user data (worlds, logs, backups folders)
                 var tempBackupDir = Path.Combine(backupDir, $"temp_backup_{timestamp}");
                 
                 try
                 {
-                    CopyDirectory(_serverPath, tempBackupDir, new[] { "worlds", "logs", "backups" });
+                    // Only copy the specified folders (not exclude them)
+                    CopySelectiveFolders(_serverPath, tempBackupDir, new[] { "worlds", "logs", "backups" });
                     System.IO.Compression.ZipFile.CreateFromDirectory(tempBackupDir, backupPath);
                 }
                 finally
@@ -91,9 +92,36 @@ public class MineCraftBackupService : IMineCraftBackupService
     }
 
     /// <summary>
-    /// Copies a directory recursively, excluding certain folders.
+    /// Copies only specified folders from source to destination recursively.
     /// </summary>
-    private void CopyDirectory(string source, string destination, string[] excludeDirs)
+    /// <param name="source">Source directory path.</param>
+    /// <param name="destination">Destination directory path.</param>
+    /// <param name="includeFolders">Array of folder names to include in the copy.</param>
+    private void CopySelectiveFolders(string source, string destination, string[] includeFolders)
+    {
+        var sourceDir = new DirectoryInfo(source);
+        if (!sourceDir.Exists)
+            return;
+
+        if (!Directory.Exists(destination))
+            Directory.CreateDirectory(destination);
+
+        // Copy only the specified subdirectories
+        foreach (var folderName in includeFolders)
+        {
+            var sourceFolderPath = Path.Combine(source, folderName);
+            if (Directory.Exists(sourceFolderPath))
+            {
+                var destFolderPath = Path.Combine(destination, folderName);
+                CopyDirectoryRecursive(sourceFolderPath, destFolderPath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Copies a directory and all its contents recursively.
+    /// </summary>
+    private void CopyDirectoryRecursive(string source, string destination)
     {
         var sourceDir = new DirectoryInfo(source);
         if (!sourceDir.Exists)
@@ -109,11 +137,8 @@ public class MineCraftBackupService : IMineCraftBackupService
 
         foreach (var dir in sourceDir.GetDirectories())
         {
-            if (excludeDirs.Contains(dir.Name))
-                continue;
-
             var nextDestination = Path.Combine(destination, dir.Name);
-            CopyDirectory(dir.FullName, nextDestination, excludeDirs);
+            CopyDirectoryRecursive(dir.FullName, nextDestination);
         }
     }
 
