@@ -40,7 +40,7 @@ public class MineCraftUpdateServiceTests
     [Test]
     public void Test_That_Constructor_Throws_When_Log_IsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new MineCraftUpdateService(null!, _minecraftService, _versionService, _options));
     }
 
@@ -52,7 +52,7 @@ public class MineCraftUpdateServiceTests
     [Test]
     public void Test_That_Constructor_Throws_When_MinecraftService_IsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new MineCraftUpdateService(_log, null!, _versionService, _options));
     }
 
@@ -64,7 +64,7 @@ public class MineCraftUpdateServiceTests
     [Test]
     public void Test_That_Constructor_Throws_When_VersionService_IsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new MineCraftUpdateService(_log, _minecraftService, null!, _options));
     }
 
@@ -76,7 +76,7 @@ public class MineCraftUpdateServiceTests
     [Test]
     public void Test_That_Constructor_Throws_When_Options_IsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new MineCraftUpdateService(_log, _minecraftService, _versionService, null!));
     }
 
@@ -144,7 +144,7 @@ public class MineCraftUpdateServiceTests
     {
         _options.MinimumServerUptimeForUpdateSeconds = 300; // 5 minutes
         _service = new MineCraftUpdateService(_log, _minecraftService, _versionService, _options);
-        
+
         _minecraftService.ServerStartTime.Returns(DateTime.Now.AddSeconds(-60)); // Only 1 minute uptime
 
         var result = await _service.NewVersionIsAvailable("1.0.0");

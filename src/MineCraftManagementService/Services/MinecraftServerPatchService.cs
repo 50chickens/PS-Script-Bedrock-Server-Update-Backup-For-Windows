@@ -73,7 +73,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
 
         // Extract update over existing installation
         UpdateServerFromZipFile(downloadFileName);
-        
+
         _log.Info($"Update to version {version} applied successfully");
     }
 
@@ -85,7 +85,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
         try
         {
             var response = await _httpClient.GetStringAsync(metadataUrl, cancellationToken);
-            
+
             if (string.IsNullOrWhiteSpace(response))
             {
                 _log.Error("API returned empty response");

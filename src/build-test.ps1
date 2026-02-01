@@ -3,58 +3,95 @@
 # Load build configuration
 $config = Get-Content './build-configuration.json' -Raw | ConvertFrom-Json
 
-function Invoke-ValidateProjectReferences {
-    param([PSCustomObject]$Config, [string]$SolutionFile)
+function Invoke-CodeLint {
+    param([PSCustomObject]$Configuration)
     
-    if (-not $Config.enabled) {
+    if (-not $Configuration.lint.enabled) {
+        Write-Host "Code lint is disabled"
+        return
+    }
+    
+    Write-Host "=== Linting Code ==="
+    
+    $solutionFile = $Configuration.solutionFile
+    
+    dotnet format $solutionFile --verify-no-changes --verbosity $Configuration.lint.verbosity
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Code lint failed" -ForegroundColor Red
+        exit 1
+    }
+    
+    Write-Host "✓ Code lint passed"
+}
+
+function Invoke-ValidateProjectReferences {
+    param([PSCustomObject]$Configuration)
+    
+    $enabled = $Configuration.validate.enabled
+    
+    if (-not $enabled) {
         Write-Host "Project reference validation is disabled"
         return
     }
     
     Write-Host "=== Validating Project References ==="
     
+    $solutionFile = $Configuration.solutionFile
+    
     # Check for circular references
-    dotnet sln $SolutionFile list | Out-Null
+    dotnet sln $solutionFile list | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to list projects in solution"
+        Write-Host "Failed to list projects in solution" -ForegroundColor Red
+        exit 1
     }
     
     Write-Host "✓ Project references validated successfully"
 }
 
 function Invoke-RestoreDependencies {
-    param([PSCustomObject]$Config, [string]$SolutionFile)
+    param([PSCustomObject]$Configuration)
     
-    if (-not $Config.enabled) {
+    $enabled = $Configuration.restore.enabled
+    $verbosity = $Configuration.restore.verbosity
+    $solutionFile = $Configuration.solutionFile
+    
+    if (-not $enabled) {
         Write-Host "Dependency restoration is disabled"
         return
     }
     
     Write-Host "=== Restoring Dependencies ==="
     
-    dotnet restore $SolutionFile --verbosity $Config.verbosity
+    dotnet restore $solutionFile --verbosity $verbosity
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to restore dependencies"
+        Write-Host "Failed to restore dependencies" -ForegroundColor Red
+        exit 1
     }
     
     Write-Host "✓ Dependencies restored successfully"
 }
 
 function Invoke-CodeFormatCheck {
-    param([PSCustomObject]$Config, [string]$SolutionFile)
+    param([PSCustomObject]$Configuration)
     
-    if (-not $Config.enabled) {
+    $enabled = $Configuration.codeFormat.enabled
+    $verbosity = $Configuration.codeFormat.verbosity
+    $failOnError = $Configuration.codeFormat.failOnError
+    $solutionFile = $Configuration.solutionFile
+    
+    if (-not $enabled) {
         Write-Host "Code format check is disabled"
         return
     }
     
     Write-Host "=== Checking Code Format ==="
     
-    dotnet format $SolutionFile --verify-no-changes --verbosity $Config.verbosity
+    dotnet format $solutionFile --verify-no-changes --verbosity $verbosity
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Code formatting issues detected. Run 'dotnet format' to fix."
-        if ($Config.failOnError) {
-            throw "Code format check failed"
+        if ($failOnError) {
+            Write-Host "Code format check failed" -ForegroundColor Red
+            exit 1
         }
     } else {
         Write-Host "✓ Code format check passed"
@@ -62,9 +99,15 @@ function Invoke-CodeFormatCheck {
 }
 
 function Invoke-BuildSolution {
-    param([PSCustomObject]$Config, [string]$SolutionFile)
+    param([PSCustomObject]$Configuration)
     
-    if (-not $Config.enabled) {
+    $enabled = $Configuration.build.enabled
+    $buildConfig = $Configuration.build.configuration
+    $verbosity = $Configuration.build.verbosity
+    $warningsAsErrors = $Configuration.build.warningsAsErrors
+    $solutionFile = $Configuration.solutionFile
+    
+    if (-not $enabled) {
         Write-Host "Build is disabled"
         return
     }
@@ -72,28 +115,35 @@ function Invoke-BuildSolution {
     Write-Host "=== Building Solution ==="
     
     $buildArgs = @(
-        $SolutionFile,
-        "--configuration", $Config.configuration,
-        "--verbosity", $Config.verbosity,
-        "--no-restore"
+        $solutionFile,
+        "--configuration", $buildConfig,
+        "--no-restore",
+        "--verbosity", $verbosity
     )
     
-    if ($Config.warningsAsErrors) {
-        $buildArgs += "/warnaserror"
+    if ($warningsAsErrors) {
+        $buildArgs += @("/p:TreatWarningsAsErrors=true")
     }
     
     dotnet build @buildArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "Build failed"
+        Write-Host "Build failed" -ForegroundColor Red
+        exit 1
     }
     
     Write-Host "✓ Build completed successfully"
 }
 
 function Invoke-RunTests {
-    param([PSCustomObject]$Config, [string]$SolutionFile)
+    param([PSCustomObject]$Configuration)
     
-    if (-not $Config.enabled) {
+    $enabled = $Configuration.test.enabled
+    $testConfig = $Configuration.test.configuration
+    $verbosity = $Configuration.test.verbosity
+    $collectCoverage = $Configuration.test.collectCoverage
+    $solutionFile = $Configuration.solutionFile
+    
+    if (-not $enabled) {
         Write-Host "Tests are disabled"
         return
     }
@@ -101,55 +151,45 @@ function Invoke-RunTests {
     Write-Host "=== Running Tests ==="
     
     $testArgs = @(
-        $SolutionFile,
-        "--configuration", $Config.configuration,
-        "--verbosity", $Config.verbosity,
+        $solutionFile,
+        "--configuration", $testConfig,
+        "--verbosity", $verbosity,
         "--no-build",
         "--no-restore",
         "--logger", "trx"
     )
     
-    if ($Config.collectCoverage) {
-        $testArgs += "/p:CollectCoverage=true"
-        $testArgs += "/p:CoverletOutputFormat=json"
-        $testArgs += "/p:CoverletOutput=./coverage.json"
+    if ($collectCoverage) {
+        $testArgs += @("/p:CollectCoverage=true", "/p:CoverletOutputFormat=json", "/p:CoverletOutput=./coverage.json")
     }
     
     dotnet test @testArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "Tests failed"
+        Write-Host "Tests failed" -ForegroundColor Red
+        exit 1
     }
     
     Write-Host "✓ All tests passed"
 }
 
 # Main execution
-try {
-    Write-Host ""
-    Write-Host "=== Minecraft Management Service Build & Test ===" -ForegroundColor Cyan
-    Write-Host ""
-    
-    $solutionFile = $config.solutionFile
-    
-    if (-not (Test-Path $solutionFile)) {
-        throw "Solution file not found: $solutionFile"
-    }
-    
-    Invoke-ValidateProjectReferences -Config $config.validate -SolutionFile $solutionFile
-    Invoke-RestoreDependencies -Config $config.restore -SolutionFile $solutionFile
-    Invoke-CodeFormatCheck -Config $config.codeFormat -SolutionFile $solutionFile
-    Invoke-BuildSolution -Config $config.build -SolutionFile $solutionFile
-    Invoke-RunTests -Config $config.test -SolutionFile $solutionFile
-    
-    Write-Host ""
-    Write-Host "=== Build & Test Completed Successfully ===" -ForegroundColor Green
-    Write-Host ""
-    exit 0
-}
-catch {
-    Write-Host ""
-    Write-Host "=== Build & Test Failed ===" -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
-    Write-Host ""
+Write-Host ""
+Write-Host "=== Minecraft Management Service Build & Test ===" -ForegroundColor Cyan
+Write-Host ""
+
+if (-not (Test-Path $config.solutionFile)) {
+    Write-Host "Solution file not found: $($config.solutionFile)" -ForegroundColor Red
     exit 1
 }
+
+Invoke-CodeLint -Configuration $config
+Invoke-ValidateProjectReferences -Configuration $config
+Invoke-RestoreDependencies -Configuration $config
+Invoke-CodeFormatCheck -Configuration $config
+Invoke-BuildSolution -Configuration $config
+Invoke-RunTests -Configuration $config
+
+Write-Host ""
+Write-Host "=== Build & Test Completed Successfully ===" -ForegroundColor Green
+Write-Host ""
+exit 0

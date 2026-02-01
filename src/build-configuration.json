@@ -1,5 +1,9 @@
 {
   "solutionFile": "MineCraftManagementService.sln",
+  "lint": {
+    "enabled": true,
+    "verbosity": "normal"
+  },
   "validate": {
     "enabled": true
   },

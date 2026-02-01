@@ -33,10 +33,10 @@ public class MineCraftHttpClient : IMineCraftHttpClient
         {
             using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
-            
+
             using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024);
-            
+
             await contentStream.CopyToAsync(fileStream, 1024 * 1024, cancellationToken);
         }
         catch (HttpRequestException ex)
