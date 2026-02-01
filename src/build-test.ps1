@@ -1,7 +1,6 @@
-#Requires -Version 7.0
-
 # Load build configuration
 $config = Get-Content './build-configuration.json' -Raw | ConvertFrom-Json
+Set-Location -Path (Split-Path -Path $MyInvocation.MyCommand.Definition -Parent)
 
 function Invoke-CodeLint {
     param([PSCustomObject]$Configuration)
