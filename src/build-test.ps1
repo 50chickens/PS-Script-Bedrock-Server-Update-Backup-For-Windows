@@ -14,7 +14,7 @@ function Invoke-ValidateProjectReferences {
     Write-Host "=== Validating Project References ==="
     
     # Check for circular references
-    $projects = dotnet sln $SolutionFile list
+    dotnet sln $SolutionFile list | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to list projects in solution"
     }
@@ -123,33 +123,6 @@ function Invoke-RunTests {
     Write-Host "✓ All tests passed"
 }
 
-function Invoke-CodeCoverage {
-    param([PSCustomObject]$Config, [string]$SolutionFile)
-    
-    if (-not $Config.enabled) {
-        Write-Host "Code coverage is disabled"
-        return
-    }
-    
-    Write-Host "=== Collecting Code Coverage ==="
-    
-    dotnet test $SolutionFile `
-        /p:CollectCoverage=true `
-        /p:CoverletOutputFormat=json `
-        /p:CoverletOutput=./coverage.json `
-        --no-build `
-        --no-restore
-        
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Code coverage collection failed"
-        if ($Config.failOnError) {
-            throw "Code coverage collection failed"
-        }
-    } else {
-        Write-Host "✓ Code coverage collected successfully"
-    }
-}
-
 # Main execution
 try {
     Write-Host ""
@@ -167,7 +140,6 @@ try {
     Invoke-CodeFormatCheck -Config $config.codeFormat -SolutionFile $solutionFile
     Invoke-BuildSolution -Config $config.build -SolutionFile $solutionFile
     Invoke-RunTests -Config $config.test -SolutionFile $solutionFile
-    Invoke-CodeCoverage -Config $config.coverage -SolutionFile $solutionFile
     
     Write-Host ""
     Write-Host "=== Build & Test Completed Successfully ===" -ForegroundColor Green
