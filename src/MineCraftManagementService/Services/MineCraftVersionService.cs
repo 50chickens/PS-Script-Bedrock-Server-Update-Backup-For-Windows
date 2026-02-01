@@ -19,7 +19,7 @@ public class MineCraftVersionService : IMineCraftVersionService
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
     }
-    
+
     /// <summary>
     /// Gets the latest Bedrock server version.
     /// </summary>

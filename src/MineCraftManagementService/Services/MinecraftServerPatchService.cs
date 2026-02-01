@@ -14,6 +14,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
 {
     private readonly ILog<MinecraftServerPatchService> _log;
     private readonly IMineCraftUpdateDownloadService _updateDownloaderService;
+    private readonly IMineCraftHttpClient _httpClient;
     private readonly string _serverPath;
     private MineCraftServerOptions _options;
     private DateTime _lastUpdateCheckTime = DateTime.MinValue;
@@ -22,10 +23,12 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
     public MinecraftServerPatchService(
         ILog<MinecraftServerPatchService> log,
         IMineCraftUpdateDownloadService updateDownloaderService,
+        IMineCraftHttpClient httpClient,
         MineCraftServerOptions options)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _updateDownloaderService = updateDownloaderService ?? throw new ArgumentNullException(nameof(updateDownloaderService));
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _serverPath = _options.ServerPath;
     }
@@ -70,7 +73,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
 
         // Extract update over existing installation
         UpdateServerFromZipFile(downloadFileName);
-        
+
         _log.Info($"Update to version {version} applied successfully");
     }
 
@@ -81,39 +84,50 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
     {
         try
         {
-            using (var httpClient = new HttpClient())
+            var response = await _httpClient.GetStringAsync(metadataUrl, cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(response))
             {
-                httpClient.Timeout = TimeSpan.FromSeconds(_options.DownloadTimeoutSeconds);
-                var response = await httpClient.GetStringAsync(metadataUrl, cancellationToken);
-
-                using var document = JsonDocument.Parse(response);
-                var root = document.RootElement;
-
-                if (root.TryGetProperty("result", out var resultElement) &&
-                    resultElement.TryGetProperty("links", out var linksArray))
-                {
-                    foreach (var link in linksArray.EnumerateArray())
-                    {
-                        if (link.TryGetProperty("downloadType", out var typeElement) &&
-                            typeElement.GetString() == "serverBedrockWindows" &&
-                            link.TryGetProperty("downloadUrl", out var urlElement))
-                        {
-                            var downloadUrl = urlElement.GetString();
-                            if (!string.IsNullOrEmpty(downloadUrl))
-                            {
-                                return downloadUrl;
-                            }
-                        }
-                    }
-                }
-
-                _log.Error($"Windows download URL not found in API response. Metadata URL: {metadataUrl}");
+                _log.Error("API returned empty response");
                 return null;
             }
+
+            using var document = JsonDocument.Parse(response);
+            var root = document.RootElement;
+
+            if (!root.TryGetProperty("result", out var resultElement))
+            {
+                _log.Error("API response missing 'result' property");
+                return null;
+            }
+
+            if (!resultElement.TryGetProperty("links", out var linksElement))
+            {
+                _log.Error("API response missing 'links' property");
+                return null;
+            }
+
+            foreach (var link in linksElement.EnumerateArray())
+            {
+                if (link.TryGetProperty("downloadType", out var downloadType) &&
+                    downloadType.GetString() == "serverBedrockWindows" &&
+                    link.TryGetProperty("downloadUrl", out var downloadUrl))
+                {
+                    var url = downloadUrl.GetString();
+                    if (!string.IsNullOrWhiteSpace(url))
+                    {
+                        _log.Info($"Found Windows download URL: {url}");
+                        return url;
+                    }
+                }
+            }
+
+            _log.Error("No Windows Bedrock server download link found in API response");
+            return null;
         }
         catch (JsonException ex)
         {
-            _log.Error(ex, $"Failed to parse JSON from download metadata API. URL: {metadataUrl}");
+            _log.Error(ex, "Failed to parse JSON response from version API");
             return null;
         }
         catch (HttpRequestException ex)
@@ -133,7 +147,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
         }
         catch (Exception ex)
         {
-            _log.Error(ex, $"Unexpected error fetching download metadata. URL: {metadataUrl}");
+            _log.Error(ex, "Unexpected error retrieving download URL");
             return null;
         }
     }
@@ -145,17 +159,7 @@ public class MinecraftServerPatchService : IMinecraftServerPatchService
     {
         try
         {
-            using (var httpClient = new HttpClient())
-            {
-                httpClient.Timeout = TimeSpan.FromSeconds(_options.DownloadTimeoutSeconds);
-                using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                response.EnsureSuccessStatusCode();
-
-                using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                using var fileStream = File.Create(filePath);
-                // Use larger buffer for faster copying
-                await contentStream.CopyToAsync(fileStream, 1024 * 1024, cancellationToken);  // 1MB buffer
-            }
+            await _httpClient.DownloadFileAsync(url, filePath, cancellationToken);
         }
         catch (HttpRequestException ex)
         {

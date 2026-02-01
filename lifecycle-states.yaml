@@ -1,0 +1,64 @@
+lifecycle_states:
+  - priority: 1
+    name: ShouldBeStopped
+    conditions:
+      - Server running
+      - Update check due OR auto-shutdown due
+    action: HandleStopServerAsync
+    steps:
+      - Send graceful shutdown command to server
+      - Wait for process termination
+      - Clear process reference
+      - Release network ports
+
+  - priority: 2
+    name: ShouldBePatched
+    conditions:
+      - Server stopped
+      - Pending patch version exists
+    action: HandlePatchServerAsync
+    parameters:
+      - patchVersion
+    steps:
+      - Create backup ZIP of current installation
+      - Download patch file to configured download folder
+      - Extract patch to server directory
+      - Clear pending patch version
+      - Reschedule next update check for 24 hours
+
+  - priority: 3
+    name: ShouldBeIdle
+    conditions:
+      - Server stopped
+      - NOW < _nextAutoShutdownTime OR auto-start disabled
+    action: HandleIdleStateAsync
+    steps:
+      - Wait without attempting to start server
+      - Monitor scheduled operation times
+      - Return to evaluation loop
+
+  - priority: 4
+    name: ShouldBeStarted
+    conditions:
+      - Server stopped
+      - Auto-start enabled
+      - NOW >= _nextAutoShutdownTime
+    action: HandleStartServerAsync
+    steps:
+      - Launch server executable
+      - Establish process monitoring
+      - Begin output stream capture
+      - Detect full server startup completion
+
+  - priority: 5
+    name: ShouldBeMonitored
+    conditions:
+      - Server running
+      - Up-to-date (no pending patch)
+    action: HandleServerMonitoringAsync
+    steps:
+      - Monitor server process health
+      - Capture and log server output
+      - Log time until next auto-shutdown
+      - Log time until next update check
+      - Wait for next scheduled operation

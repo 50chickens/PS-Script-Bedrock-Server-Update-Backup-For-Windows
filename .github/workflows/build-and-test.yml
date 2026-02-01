@@ -1,0 +1,40 @@
+name: Build-And-Test
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+jobs:
+  BuildAndTest:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build and Test
+        shell: pwsh
+        run: |
+          Set-Location -LiteralPath "${{ github.workspace }}/src"
+          ./build-test.ps1
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: src/**/TestResults/**/*
+
+      - name: Upload Code Coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage
+          path: src/**/coverage.json
