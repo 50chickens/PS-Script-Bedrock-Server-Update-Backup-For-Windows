@@ -115,7 +115,7 @@ public class MineCraftServerService : IMineCraftServerService
         lock (_processLock)
         {
             int processId = _serverProcessId;
-            
+
             // First, try to find by stored process ID
             if (processId >= 0 && ProcessExists(processId))
             {
@@ -136,7 +136,7 @@ public class MineCraftServerService : IMineCraftServerService
                     _log.Debug("Process with stored ID no longer exists");
                 }
             }
-            
+
             // If process ID check failed, try finding by process name
             var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(_options.ServerExecutableName));
             if (processes.Length > 0)
@@ -277,6 +277,13 @@ public class MineCraftServerService : IMineCraftServerService
         }
         catch (ArgumentException)
         {
+            // Process doesn't exist - this is an expected condition, not an error
+            _log.Debug($"Process {processId} does not exist");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, $"Unexpected error checking if process {processId} exists");
             return false;
         }
     }

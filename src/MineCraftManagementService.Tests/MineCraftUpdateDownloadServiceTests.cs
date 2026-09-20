@@ -22,8 +22,9 @@ public class MineCraftUpdateDownloadServiceTests
         logBuilder.Build();
 
         _log = LogManager.GetLogger<MineCraftUpdateDownloadService>();
+        var httpClient = Substitute.For<IMineCraftHttpClient>();
         _options = TestUtils.CreateOptions();
-        _service = new MineCraftUpdateDownloadService(_log, _options);
+        _service = new MineCraftUpdateDownloadService(_log, httpClient, _options);
     }
 
     /// <summary>
@@ -34,7 +35,8 @@ public class MineCraftUpdateDownloadServiceTests
     [Test]
     public void Test_That_Constructor_Throws_When_Log_IsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => new MineCraftUpdateDownloadService(null!, _options));
+        var httpClient = Substitute.For<IMineCraftHttpClient>();
+        Assert.Throws<ArgumentNullException>(() => new MineCraftUpdateDownloadService(null!, httpClient, _options));
     }
 
     /// <summary>
@@ -45,7 +47,8 @@ public class MineCraftUpdateDownloadServiceTests
     [Test]
     public void Test_That_Constructor_Throws_When_Options_IsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => new MineCraftUpdateDownloadService(_log, null!));
+        var httpClient = Substitute.For<IMineCraftHttpClient>();
+        Assert.Throws<ArgumentNullException>(() => new MineCraftUpdateDownloadService(_log, httpClient, null!));
     }
 
     // Note: DownloadUpdateAsync makes actual HTTP calls and file system operations.

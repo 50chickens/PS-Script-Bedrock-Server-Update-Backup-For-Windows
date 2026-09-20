@@ -24,9 +24,10 @@ public class MinecraftServerPatchServiceTests
 
         _log = LogManager.GetLogger<MinecraftServerPatchService>();
         _downloader = Substitute.For<IMineCraftUpdateDownloadService>();
+        var httpClient = Substitute.For<IMineCraftHttpClient>();
         _options = TestUtils.CreateOptions();
 
-        _service = new MinecraftServerPatchService(_log, _downloader, _options);
+        _service = new MinecraftServerPatchService(_log, _downloader, httpClient, _options);
     }
 
 }

@@ -44,7 +44,7 @@ public class MineCraftApiClient : IMineCraftApiClient
                 _log.Info($"Latest Minecraft Bedrock version: {mineCraftServer.Version}");
                 return mineCraftServer;
             }
-            
+
             _log.Error($"Failed to parse Minecraft server version from API response. URL: {_apiUrl}. Content length: {content.Length} bytes");
             return null;
         }

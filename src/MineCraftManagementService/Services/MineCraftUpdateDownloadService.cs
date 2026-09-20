@@ -10,11 +10,16 @@ namespace MineCraftManagementService.Services;
 public class MineCraftUpdateDownloadService : IMineCraftUpdateDownloadService
 {
     private readonly ILog<MineCraftUpdateDownloadService> _log;
+    private readonly IMineCraftHttpClient _httpClient;
     private MineCraftServerOptions _options;
 
-    public MineCraftUpdateDownloadService(ILog<MineCraftUpdateDownloadService> log, MineCraftServerOptions options)
+    public MineCraftUpdateDownloadService(
+        ILog<MineCraftUpdateDownloadService> log,
+        IMineCraftHttpClient httpClient,
+        MineCraftServerOptions options)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _options = options ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -25,16 +30,7 @@ public class MineCraftUpdateDownloadService : IMineCraftUpdateDownloadService
 
         // Download the update
         var downloadFileName = Path.Combine(Path.GetTempPath(), _options.DownloadFileName);
-        using (var httpClient = new HttpClient())
-        {
-            // Use configurable timeout for download
-            httpClient.Timeout = TimeSpan.FromSeconds(_options.DownloadTimeoutSeconds);
-            using var response = await httpClient.GetAsync(mineCraftServerDownload.Url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var fileStream = File.Create(downloadFileName);
-            // Use larger buffer for faster copying
-            await contentStream.CopyToAsync(fileStream, 1024 * 1024, cancellationToken);  // 1MB buffer
-        }
+        await _httpClient.DownloadFileAsync(mineCraftServerDownload.Url, downloadFileName, cancellationToken);
 
         _log.Info($"Update downloaded to {downloadFileName}");
         return (true, downloadFileName);

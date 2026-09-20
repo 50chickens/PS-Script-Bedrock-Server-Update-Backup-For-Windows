@@ -32,7 +32,7 @@ public class MineCraftBackupService : IMineCraftBackupService
         // Use UTC time for consistent timestamps across time zones
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
         var backupDir = _options.BackupFolderName;
-        
+
         try
         {
             if (!Directory.Exists(backupDir))
@@ -47,7 +47,7 @@ public class MineCraftBackupService : IMineCraftBackupService
             {
                 // Backup only user data (worlds, logs, backups folders)
                 var tempBackupDir = Path.Combine(backupDir, $"temp_backup_{timestamp}");
-                
+
                 try
                 {
                     // Only copy the specified folders (not exclude them)
